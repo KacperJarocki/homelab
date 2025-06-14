@@ -1,0 +1,15 @@
+apiVersion: fluxcd.controlplane.io/v1
+kind: FluxInstance
+metadata:
+  name: flux
+  namespace: flux-system
+spec:
+  distribution:
+    version: "2.x"
+    registry: "ghcr.io/fluxcd"
+  sync:
+    kind: GitRepository
+    url: "https://github.com/KacperJarocki/homelab.git"
+    ref: "refs/heads/main"
+    path: "cluster/"
+    pullSecret: "flux-system"
