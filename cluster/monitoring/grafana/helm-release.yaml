@@ -14,6 +14,20 @@ spec:
         name: grafana
         namespace: monitoring
   values:
+    ingress:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: traefik
+        cert-manager.io/cluster-issuer: letsencrypt-http
+      hosts:
+        - host: grafana.dom.local
+          paths:
+            - /
+      tls:
+        - hosts:
+            - grafana.dom.local
+          secretName: grafana-tls
+
     persistence:
       enabled: true
       size: 5Gi
