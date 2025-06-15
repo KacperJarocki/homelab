@@ -4,3 +4,4 @@ resources:
 - gotk-components.yaml
 - gotk-sync.yaml
 - cluster-kustomization.yaml
+- infra-kustomization.yaml
