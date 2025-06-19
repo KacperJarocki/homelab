@@ -5,7 +5,7 @@ metadata:
   namespace: default
 spec:
   secretName: homelab-kacperjarocki-dev-tls
-  issueRef:
+  issuerRef:
     name: letsencrypt-http
     kind: ClusterIssuer
   commonName: "*.homelab.kacperjarocki.dev"
