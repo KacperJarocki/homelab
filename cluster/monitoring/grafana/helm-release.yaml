@@ -20,13 +20,13 @@ spec:
         kubernetes.io/ingress.class: traefik
         cert-manager.io/cluster-issuer: letsencrypt-http
       hosts:
-        - host: grafana.dom.local
+        - host: grafana.homelab.kacperjarocki.dev
           paths:
             - /
       tls:
         - hosts:
-            - grafana.dom.local
-          secretName: grafana-tls
+            - grafana.homelab.kacperjarocki.dev
+          secretName: homelab-kacperjarocki-dev-tls
 
     persistence:
       enabled: true

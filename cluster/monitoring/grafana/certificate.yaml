@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grafana-homelab-dev
+  namespace: monitoring
+spec:
+  secretName: homelab-kacperjarocki-dev-tls   
+  issuerRef:
+    name: letsencrypt-http
+    kind: ClusterIssuer
+  commonName: grafana.homelab.kacperjarocki.dev
+  dnsNames:
+    - grafana.homelab.kacperjarocki.dev
