@@ -1,0 +1,42 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: loki-stack
+  namespace: monitoring
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: loki-stack
+      version: "2.*"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: monitoring
+  values:
+    loki:
+      enabled: true
+    promtail:
+      enabled: true
+      config:
+        snippets:
+          extraScrapeConfigs: |
+            - job_name: suricata
+              static_configs:
+                - targets:
+                    - localhost
+                  labels:
+                    job: suricata
+                    __path__: /var/log/suricata/fast.log
+
+            - job_name: varlogs
+              static_configs:
+                - targets:
+                    - localhost
+                  labels:
+                    job: varlogs
+                    __path__: /var/log/*.log
+    grafana:
+      enabled: false
+    prometheus:
+      enabled: false
