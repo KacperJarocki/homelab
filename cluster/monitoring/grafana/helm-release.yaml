@@ -44,3 +44,7 @@ spec:
             access: proxy
             url: http://prometheus-server.monitoring.svc.cluster.local
             isDefault: true
+          - name: Loki
+            type: loki
+            access: proxy
+            url: http://loki-stack.monitoring.svc.cluster.local:3100
