@@ -1,0 +1,61 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: democratic-csi
+  namespace: storage
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: democratic-csi
+      version: '0.15.0'
+      sourceRef:
+        kind: HelmRepository
+        name: democratic-csi
+        namespace: storage
+  values:
+    csiDriver:
+      name: "org.democratic-csi.iscsi"
+    controller:
+      driver:
+        image:
+          tag: next
+    storageClasses:
+      - name: iscsi
+        defaultClass: false
+        reclaimPolicy: Delete
+        volumeBindingMode: Immediate
+        allowVolumeExpansion: true
+        parameters:
+          fsType: ext4
+          detachedVolumesFromSnapshots: "false"
+        mountOptions: []
+        secrets: {}
+    driver:
+      config:
+        driver: freenas-api-iscsi
+        instance_id: ""
+        httpConnection:
+          protocol: https
+          host: "truenas.homelab.kacperjarocki.dev"
+          port: 443
+          # apiKey zostanie wstrzyknięty z Secretu
+          allowInsecure: false
+          apiVersion: 2
+        zfs:
+          datasetParentName: v1/k3s/iscsi/s
+          detachedSnapshotsDatasetParentName: v1/k3s/iscsi/v
+        iscsi:
+          targetPortal: "192.168.1.134:3260"
+          namePrefix: csi-
+          nameSuffix: "-clustera"
+          targetGroups:
+            - targetGroupPortalGroup: 1
+              targetGroupInitiatorGroup: 1
+              targetGroupAuthType: None
+              targetGroupAuthGroup:
+  valuesFrom:
+    - kind: Secret
+      name: truenas-api-secret
+      valuesKey: apiKey
+      targetPath: driver.config.httpConnection.apiKey
