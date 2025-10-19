@@ -39,7 +39,7 @@ spec:
           protocol: https
           host: "truenas.homelab.kacperjarocki.dev"
           port: 443
-          # apiKey zostanie wstrzyknięty z Secretu
+          # apiKey will be injected from Secret
           allowInsecure: false
           apiVersion: 2
         zfs:
