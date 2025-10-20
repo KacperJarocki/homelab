@@ -8,7 +8,7 @@ spec:
   chart:
     spec:
       chart: nextcloud
-      version: '6.6.10'
+      version: '8.4.*'
       sourceRef:
         kind: HelmRepository
         name: nextcloud
@@ -28,8 +28,357 @@ spec:
         - hosts:
             - nextcloud.homelab.kacperjarocki.dev
           secretName: nextcloud-homelab-kacperjarocki-dev-tls
-
     nextcloud:
       host: nextcloud.homelab.kacperjarocki.dev
       trustedDomains:
         - nextcloud.homelab.kacperjarocki.dev
+    internalDatabase:
+      enabled: false 
+    externalDatabase:
+      enabled: true
+      type: postgresql
+      host: "192.168.1.134:5432"
+      database: nextcloud
+      existingSecret:
+        enabled: true
+        secretName: databases-secrets
+        usernameKey: db-username
+        passwordKey: db-password
+    externalRedis:
+      enabled: true
+      host: "192.168.1.134"
+      port: "6379"
+      existingSecret:
+        enabled: true
+        secretName: databases-secrets
+        passwordKey: redis-password
+
+    cronjob:
+      enabled: true
+      type: cronjob 
+      sidecar:
+        resources: {}
+        lifecycle: {}
+        securityContext: {}
+        command:
+          - /cron.sh
+      cronjob:
+        schedule: "*/5 * * * *"
+        successfulJobsHistoryLimit: 3
+        failedJobsHistoryLimit: 5
+        labels: {}
+        podLabels: {}
+        annotations: {}
+        backoffLimit: 1
+        affinity: {}
+        # Often RWO volumes are used. But the cronjob pod needs access to the same volume as the nextcloud pod.
+        # Depending on your provider two pods on the same node can still access the same volume.
+        # Following config ensures that the cronjob pod is scheduled on the same node as the nextcloud pod.
+        # affinity:
+        #   podAffinity:
+        #     requiredDuringSchedulingIgnoredDuringExecution:
+        #       - labelSelector:
+        #           matchExpressions:
+        #             - key: app.kubernetes.io/name
+        #               operator: In
+        #               values:
+        #                 - nextcloud
+        #             - key: app.kubernetes.io/component
+        #               operator: In
+        #               values:
+        #                 - app
+        #         topologyKey: kubernetes.io/hostname
+
+        ## Resource requests and limits
+        ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
+        ##
+        resources: {}
+        # Allow configuration of lifecycle hooks
+        # ref: https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/
+        # Set securityContext parameters. For example, you may need to define runAsNonRoot directive
+        securityContext: {}
+        #   runAsUser: 33
+        #   runAsGroup: 33
+        #   runAsNonRoot: true
+        #   readOnlyRootFilesystem: true
+
+        # The command to run in the cronjob container
+        # Example to incerase memory limit: php -d memory_limit=2G ...
+        command:
+          - php
+          - -f
+          - /var/www/html/cron.php
+          - --
+          - --verbose
+
+    persistence:
+      enabled: true
+      annotations: {}
+      storageClass: "iscsi"
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      nextcloudData:
+        enabled: false
+        subPath:
+        annotations: {}
+        storageClass: "iscsi"
+        # existingClaim:
+        accessMode: ReadWriteOnce
+        size: 10Gi
+    resources: {}
+    # resources:
+    #   limits:
+    #    cpu: 100m
+    #    memory: 128Mi
+    #   requests:
+    #    cpu: 100m
+    #    memory: 128Mi
+
+    livenessProbe:
+      enabled: true
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+      successThreshold: 1
+    readinessProbe:
+      enabled: true
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+      successThreshold: 1
+    startupProbe:
+      enabled: false
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 30
+      successThreshold: 1
+    hpa:
+      enabled: false
+      cputhreshold: 60
+      minPods: 1
+      maxPods: 10
+
+    nodeSelector: {}
+
+    tolerations: []
+
+    topologySpreadConstraints: []
+
+    affinity: {}
+
+    dnsConfig: {}
+    # Custom dns config for Nextcloud containers.
+    # You can for example configure ndots. This may be needed in some clusters with alpine images.
+    # options:
+    #   - name: ndots
+    #     value: "1"
+
+    imaginary:
+      enabled: true
+      replicaCount: 1
+      image:
+        # -- Imaginary image registry
+        registry: docker.io
+        # -- Imaginary image name
+        repository: h2non/imaginary
+        # -- Imaginary image tag
+        tag: 1.2.4
+        # -- Imaginary image pull policy
+        pullPolicy: IfNotPresent
+        # -- Imaginary image pull secrets
+        pullSecrets: []
+
+      # -- Additional annotations for imaginary
+      podAnnotations: {}
+      # -- Additional labels for imaginary
+      podLabels: {}
+      # -- Imaginary pod nodeSelector
+      nodeSelector: {}
+      # -- Imaginary pod tolerations
+      tolerations: []
+      # -- Imaginary pod topologySpreadConstraints
+      topologySpreadConstraints: []
+
+      # -- imaginary resources
+      resources: {}
+
+      # -- Optional security context for the Imaginary container
+      securityContext:
+        runAsUser: 1000
+        runAsNonRoot: true
+        # allowPrivilegeEscalation: false
+        # capabilities:
+        #   drop:
+        #     - ALL
+
+      podSecurityContext: {}
+      # runAsNonRoot: true
+      # seccompProfile:
+      #   type: RuntimeDefault
+
+      readinessProbe:
+        enabled: true
+        failureThreshold: 3
+        successThreshold: 1
+        periodSeconds: 10
+        timeoutSeconds: 1
+      livenessProbe:
+        enabled: true
+        failureThreshold: 3
+        successThreshold: 1
+        periodSeconds: 10
+        timeoutSeconds: 1
+
+      service:
+        # -- Imaginary: Kubernetes Service type
+        type: ClusterIP
+        # -- Imaginary: LoadBalancerIp for service type LoadBalancer
+        loadBalancerIP:
+        # -- Imaginary: NodePort for service type NodePort
+        nodePort:
+        # -- Additional annotations for service imaginary
+        annotations: {}
+        # -- Additional labels for service imaginary
+        labels: {}
+
+    ## Prometheus Exporter / Metrics
+    ##
+    metrics:
+      enabled: false
+
+      replicaCount: 1
+      # Optional: becomes NEXTCLOUD_SERVER env var in the nextcloud-exporter container.
+      # Without it, we will use the full name of the nextcloud service
+      server: ""
+      # The metrics exporter needs to know how you serve Nextcloud either http or https
+      https: false
+      # Use API token if set, otherwise fall back to password authentication
+      # https://github.com/xperimental/nextcloud-exporter#token-authentication
+      # Currently you still need to set the token manually in your nextcloud install
+      token: ""
+      timeout: 5s
+      # if set to true, exporter skips certificate verification of Nextcloud server.
+      tlsSkipVerify: false
+      info:
+        # Optional: becomes NEXTCLOUD_INFO_APPS env var in the nextcloud-exporter container.
+        # Enables gathering of apps-related metrics. Defaults to false
+        apps: false
+        update: false
+
+      image:
+        repository: xperimental/nextcloud-exporter
+        tag: 0.8.0
+        pullPolicy: IfNotPresent
+        # pullSecrets:
+        #   - myRegistrKeySecretName
+
+      ## Metrics exporter resource requests and limits
+      ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
+      ##
+      resources: {}
+
+      # -- Metrics exporter pod Annotation
+      podAnnotations: {}
+
+      # -- Metrics exporter pod Labels
+      podLabels: {}
+
+      # -- Metrics exporter pod nodeSelector
+      nodeSelector: {}
+
+      # -- Metrics exporter pod tolerations
+      tolerations: []
+
+      # -- Metrics exporter pod affinity
+      affinity: {}
+
+      service:
+        type: ClusterIP
+        # Use serviceLoadBalancerIP to request a specific static IP,
+        # otherwise leave blank
+        loadBalancerIP:
+        annotations:
+          prometheus.io/scrape: "true"
+          prometheus.io/port: "9205"
+        labels: {}
+
+      # -- security context for the metrics CONTAINER in the pod
+      securityContext:
+        runAsUser: 1000
+        runAsNonRoot: true
+        # allowPrivilegeEscalation: false
+        # capabilities:
+        #   drop:
+        #     - ALL
+
+      # -- security context for the metrics POD
+      podSecurityContext: {}
+      # runAsNonRoot: true
+      # seccompProfile:
+      #   type: RuntimeDefault
+
+      ## Prometheus Operator ServiceMonitor configuration
+      ##
+      serviceMonitor:
+        ## @param metrics.serviceMonitor.enabled Create ServiceMonitor Resource for scraping metrics using PrometheusOperator
+        ##
+        enabled: false
+
+        ## @param metrics.serviceMonitor.namespace Namespace in which Prometheus is running
+        ##
+        namespace: ""
+
+        ## @param metrics.serviceMonitor.namespaceSelector The selector of the namespace where the target service is located (defaults to the release namespace)
+        namespaceSelector:
+
+        ## @param metrics.serviceMonitor.jobLabel The name of the label on the target service to use as the job name in prometheus.
+        ##
+        jobLabel: ""
+
+        ## @param metrics.serviceMonitor.interval Interval at which metrics should be scraped
+        ## ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#endpoint
+        ##
+        interval: 30s
+
+        ## @param metrics.serviceMonitor.scrapeTimeout Specify the timeout after which the scrape is ended
+        ## ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#endpoint
+        ##
+        scrapeTimeout: ""
+
+        ## @param metrics.serviceMonitor.labels Extra labels for the ServiceMonitor
+        ##
+        labels: {}
+
+      rules:
+        # -- Deploy Prometheus Rules (Alerts) for the exporter
+        # @section -- Metrics
+        enabled: false
+        # -- Label on Prometheus Rules CRD Manifest
+        # @section -- Metrics
+        labels: {}
+        defaults:
+          # -- Add Default Rules
+          # @section -- Metrics
+          enabled: true
+          # -- Label on the rules (the severity is already set)
+          # @section -- Metrics
+          labels: {}
+          # -- Filter on metrics on alerts (default just for this helm-chart)
+          # @section -- Metrics
+          filter: ""
+        # -- Add own Rules to Prometheus Rules
+        # @section -- Metrics
+        additionalRules: []
+
+    rbac:
+      enabled: false
+      serviceaccount:
+        create: true
+        name: nextcloud-serviceaccount
+        annotations: {}
+
+    ## @param securityContext for nextcloud pod @deprecated Use `nextcloud.podSecurityContext` instead
+    securityContext: {}
