@@ -32,6 +32,7 @@ spec:
 
     persistence:
       enabled: true
+      storageClassName: iscsi
       size: 5Gi
     initChownData:
       enabled: false
