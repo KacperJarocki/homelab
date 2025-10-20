@@ -48,9 +48,8 @@ spec:
       enabled: true
       host: "192.168.1.134"
       port: "6379"
-      password: ""
       existingSecret:
-        enabled: false
+        enabled: true
         secretName: databases-secrets
         passwordKey: redis-password
 
