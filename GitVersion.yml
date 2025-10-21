@@ -10,12 +10,6 @@ branches:
   main:
     regex: '^main$'
     increment: Patch
-    is-mainline: true
-
   feature:
     regex: '^(feature|feat|bugfix|hotfix)/.*'
     increment: Minor
-    label: useBranchName
-
-ignore:
-  sha: []
