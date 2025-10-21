@@ -8,14 +8,14 @@ patch-version-bump-message: '(?s)^(fix|perf|refactor|chore|docs|test|build|ci)(\
 
 branches:
   main:
-    regex: ^main$
-    tag: ""
+    regex: '^main$'
     increment: Patch
-    prevent-increment-of-merged-branch-version: true
-    track-merge-target: false
+    is-mainline: true
+
   feature:
-    regex: ^(feature|feat|bugfix|hotfix)/.*
-    tag: useBranchName
+    regex: '^(feature|feat|bugfix|hotfix)/.*'
     increment: Minor
+    label: useBranchName
+
 ignore:
   sha: []
