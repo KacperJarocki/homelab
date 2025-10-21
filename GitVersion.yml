@@ -1,11 +1,8 @@
-mode: Mainline
-next-version: 0.1.0
+workflow: GitHubFlow/v1
 commit-message-incrementing: Enabled
-
 major-version-bump-message: '(?s)^.*(BREAKING CHANGE|!):.*$'
 minor-version-bump-message: '(?s)^feat(\(.+\))?:'
 patch-version-bump-message: '(?s)^(fix|perf|refactor|chore|docs|test|build|ci)(\(.+\))?:'
-
 branches:
   main:
     regex: '^main$'
