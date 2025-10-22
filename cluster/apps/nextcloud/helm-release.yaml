@@ -211,23 +211,20 @@ spec:
 
       # setup ingress
       ingress:
-        # enable ingress for collabora online
-        enabled: false
-        className: ""
-        # please check collabora values.yaml for nginx/haproxy annotations examples
-        annotations: {}
+        enabled: true
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: letsencrypt-http-prod
         hosts:
-          - host: chart-example.local
+          - host: col.nextcloud.homelab.kacperjarocki.dev
             paths:
               - path: /
-                pathType: ImplementationSpecific
-        tls: []
-        #  - secretName: collabora-ingress-tls
-        #    hosts:
-        #      - collabora.domain
-
-      # see collabora helm README.md for recommended values
-      resources: {}
+                pathType: Prefix
+        tls:
+          - hosts:
+              - col.nextcloud.homelab.kacperjarocki.dev
+            secretName: col-nextcloud-homelab-kacperjarocki-dev-tls
+        resources: {}
 
 ## Cronjob to execute Nextcloud background tasks
 ## ref: https://docs.nextc
