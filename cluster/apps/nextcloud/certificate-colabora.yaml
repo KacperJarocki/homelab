@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: col-nextcloud-homelab-dev
+  namespace: nextcloud 
+spec:
+  secretName: col-nextcloud-homelab-kacperjarocki-dev-tls   
+  issuerRef:
+    name: letsencrypt-http-prod
+    kind: ClusterIssuer
+  commonName: col.nextcloud.homelab.kacperjarocki.dev
+  dnsNames:
+    - col.nextcloud.homelab.kacperjarocki.dev
