@@ -189,11 +189,11 @@ spec:
 
         # set extra parameters for collabora
         # you may need to add --o:ssl.termination=true
-        extra_params: --o:ssl.enable=false
+        extra_params: --o:ssl.enable=false --o:ssl.termination=true
 
         ## Specify server_name when the hostname is not reachable directly for
         # example behind reverse-proxy. example: collabora.domain
-        server_name: null
+        server_name: col.nextcloud.homelab.kacperjarocki.dev
 
         existingSecret:
           # set to true to to get collabora admin credentials from an existin secret
@@ -297,14 +297,14 @@ spec:
         labels: {}
 
     metrics:
-      enabled: false
+      enabled: true
 
       replicaCount: 1
       # Optional: becomes NEXTCLOUD_SERVER env var in the nextcloud-exporter container.
       # Without it, we will use the full name of the nextcloud service
-      server: ""
+      server: "nextcloud.homelab.kacperjarocki.dev"
       # The metrics exporter needs to know how you serve Nextcloud either http or https
-      https: false
+      https: true
       # Use API token if set, otherwise fall back to password authentication
       # https://github.com/xperimental/nextcloud-exporter#token-authentication
       # Currently you still need to set the token manually in your nextcloud install
