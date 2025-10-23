@@ -185,11 +185,11 @@ spec:
       collabora:
         ## HTTPS nextcloud domain, if needed
         aliasgroups: 
-          - host: "https://nextcloud.homelab.kacperjarocki.dev:443"
+          - host: "https://nextcloud.homelab.kacperjarocki.dev"
 
         # set extra parameters for collabora
         # you may need to add --o:ssl.termination=true
-        extra_params: --o:ssl.enable=true
+        extra_params: --o:ssl.enable=false
 
         ## Specify server_name when the hostname is not reachable directly for
         # example behind reverse-proxy. example: collabora.domain
