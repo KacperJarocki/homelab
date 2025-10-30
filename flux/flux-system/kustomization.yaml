@@ -5,3 +5,5 @@ resources:
 - gotk-sync.yaml
 - cluster-kustomization.yaml
 - infra-kustomization.yaml
+- network-metallb-config.yaml
+- network-metallb.yaml
