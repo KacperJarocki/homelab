@@ -34,7 +34,7 @@ spec:
         pullPolicy: IfNotPresent
       agentImage:
         repository: "hashicorp/vault"
-        tag: "1.20.4"
+        tag: "1.21.1"
         cpuLimit: "500m"
         cpuRequest: "250m"
         memLimit: "128Mi"
@@ -317,7 +317,7 @@ spec:
 
       image:
         repository: "hashicorp/vault"
-        tag: "1.20.4"
+        tag: "1.21.1"
         # Overrides the default Image Pull Policy
         pullPolicy: IfNotPresent
 
@@ -879,7 +879,7 @@ spec:
         extraArgs: []
         image:
           repository: "hashicorp/vault"
-          tag: "1.20.4"
+          tag: "1.21.1"
           pullPolicy: IfNotPresent
         logFormat: standard
         logLevel: info
