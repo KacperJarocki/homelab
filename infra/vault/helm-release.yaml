@@ -30,7 +30,7 @@ spec:
       externalVaultAddr: ""
       image:
         repository: "hashicorp/vault-k8s"
-        tag: "1.7.0"
+        tag: "1.7.1"
         pullPolicy: IfNotPresent
       agentImage:
         repository: "hashicorp/vault"
