@@ -46,7 +46,7 @@ spec:
           datasetParentName: v1/k3s/iscsi/s
           detachedSnapshotsDatasetParentName: v1/k3s/iscsi/v
         iscsi:
-          targetPortal: "192.168.1.134:3260"
+          targetPortal: "192.168.1.180:3260"
           namePrefix: csi-
           nameSuffix: "-clustera"
           targetGroups:
