@@ -93,16 +93,15 @@ spec:
       extraConfigmapLabels: {}
       fullnameOverride: ""
       ingress:
-        enabled: false
+        enabled: true
         ingressClassName: ""
         annotations: {}
         #   kubernetes.io/ingress.class: nginx
         #   kubernetes.io/tls-acme: 'true'
         extraLabels: {}
-        hosts: []
-        #   - prometheus.domain.com
+        hosts: 
+          - prometheus.homelab.kacperjarocki.dev
         #   - domain.com/prometheus
-
         path: /
         pathType: Prefix
         extraPaths: []
@@ -114,10 +113,10 @@ spec:
         ## Prometheus server Ingress TLS configuration (hosts passed through tpl)
         ## Secrets must be manually created in the namespace
         ##
-        tls: []
-        #   - secretName: prometheus-server-tls
-        #     hosts:
-        #       - prometheus.domain.com
+        tls: 
+           - secretName: prometheus-homelab-kacperjarocki-dev-tls
+             hosts:
+               - prometheus.homelab.kacperjarocki.dev
 
       ## route (map) allows configuration of HTTPRoute resources
       ## Requires Gateway API resources and suitable controller installed within the cluster
