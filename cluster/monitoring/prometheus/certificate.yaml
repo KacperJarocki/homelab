@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: prometheus-homelab-dev
+  namespace: monitoring
+spec:
+  secretName: prometheus-homelab-kacperjarocki-dev-tls   
+  issuerRef:
+    name: letsencrypt-http-prod
+    kind: ClusterIssuer
+  commonName: prometheus.homelab.kacperjarocki.dev
+  dnsNames:
+    - prometheus.homelab.kacperjarocki.dev
