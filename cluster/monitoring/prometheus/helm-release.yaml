@@ -290,7 +290,7 @@ spec:
         rule_files:
           - /etc/config/recording_rules.yml
           - /etc/config/alerting_rules.yml
-        ## Below two files are DEPRECATED will be removed from this default values file
+          # DEPRECATED:
           - /etc/config/rules
           - /etc/config/alerts
 
@@ -298,11 +298,15 @@ spec:
           - job_name: prometheus
             static_configs:
               - targets:
-                - localhost:9090
+                  - localhost:9090
+
           - job_name: 'kubernetes-apiservers'
             kubernetes_sd_configs:
               - role: endpoints
             scheme: https
+            tls_config:
+              ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+            bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
             relabel_configs:
               - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
                 action: keep
@@ -310,21 +314,11 @@ spec:
 
           - job_name: 'kubernetes-nodes'
             scheme: https
-            # <kubernetes_sd_config>.
             tls_config:
               ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-              # If your node certificates are self-signed or use a different CA to the
-              # master CA, then disable certificate verification below. Note that
-              # certificate verification is an integral part of a secure infrastructure
-              # so this should only be disabled in a controlled environment. You can
-              # disable certificate verification by uncommenting the line below.
-              #
-              # insecure_skip_verify: true
             bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-
             kubernetes_sd_configs:
               - role: node
-
             relabel_configs:
               - action: labelmap
                 regex: __meta_kubernetes_node_label_(.+)
@@ -335,13 +329,11 @@ spec:
                 target_label: __metrics_path__
                 replacement: /api/v1/nodes/$1/proxy/metrics
 
-
           - job_name: 'kubernetes-nodes-cadvisor'
             scheme: https
             tls_config:
               ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
             bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-
             kubernetes_sd_configs:
               - role: node
             relabel_configs:
@@ -353,12 +345,28 @@ spec:
                 regex: (.+)
                 target_label: __metrics_path__
                 replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
+
+          - job_name: 'node-exporter'
+            kubernetes_sd_configs:
+              - role: node
+            relabel_configs:
+              - action: labelmap
+                regex: __meta_kubernetes_node_label_(.+)
+              - source_labels: [__meta_kubernetes_node_address_InternalIP]
+                action: replace
+                regex: (.*)
+                replacement: $1:9100
+                target_label: __address__
+
+          - job_name: 'kube-state-metrics'
+            static_configs:
+              - targets:
+                  - prometheus-kube-state-metrics.monitoring.svc.cluster.local:8080
+
           - job_name: 'kubernetes-service-endpoints'
             honor_labels: true
-
             kubernetes_sd_configs:
               - role: endpoints
-
             relabel_configs:
               - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
                 action: keep
@@ -393,15 +401,13 @@ spec:
               - source_labels: [__meta_kubernetes_pod_node_name]
                 action: replace
                 target_label: node
+
           - job_name: 'kubernetes-service-endpoints-slow'
             honor_labels: true
-
             scrape_interval: 5m
             scrape_timeout: 30s
-
             kubernetes_sd_configs:
               - role: endpoints
-
             relabel_configs:
               - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape_slow]
                 action: keep
@@ -436,24 +442,20 @@ spec:
 
           - job_name: 'prometheus-pushgateway'
             honor_labels: true
-
             kubernetes_sd_configs:
               - role: service
-
             relabel_configs:
               - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_probe]
                 action: keep
                 regex: pushgateway
+
           - job_name: 'kubernetes-services'
             honor_labels: true
-
             metrics_path: /probe
             params:
               module: [http_2xx]
-
             kubernetes_sd_configs:
               - role: service
-
             relabel_configs:
               - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_probe]
                 action: keep
@@ -473,10 +475,8 @@ spec:
 
           - job_name: 'kubernetes-pods'
             honor_labels: true
-
             kubernetes_sd_configs:
               - role: pod
-
             relabel_configs:
               - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
                 action: keep
@@ -519,15 +519,13 @@ spec:
               - source_labels: [__meta_kubernetes_pod_node_name]
                 action: replace
                 target_label: node
+
           - job_name: 'kubernetes-pods-slow'
             honor_labels: true
-
             scrape_interval: 5m
             scrape_timeout: 30s
-
             kubernetes_sd_configs:
               - role: pod
-
             relabel_configs:
               - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape_slow]
                 action: keep
