@@ -382,6 +382,8 @@ spec:
       serviceMonitor:
         enabled: true
         namespace: monitoring 
+        labels:
+          release: kube-prometheus-stack 
       rules:
         enabled: true
         defaults:

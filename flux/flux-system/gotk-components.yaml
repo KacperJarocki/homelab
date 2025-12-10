@@ -4473,6 +4473,7 @@ spec:
         app.kubernetes.io/instance: flux-system
         app.kubernetes.io/part-of: flux
         app.kubernetes.io/version: v2.7.5
+        release: kube-prometheus-stack 
     spec:
       containers:
       - args:
