@@ -20,7 +20,7 @@ spec:
       tls: true
       tlsSecret:  longhorn-tls
       annotations:
-        kubernetes.io/ingress.class: traefik 
+        kubernetes.io/ingress.class: traefik
         kubernetes.io/tls-acme: true
     metrics:
       serviceMonitor:
