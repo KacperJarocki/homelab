@@ -373,54 +373,14 @@ spec:
       ## Prometheus Operator ServiceMonitor configuration
       ##
       serviceMonitor:
-        ## @param metrics.serviceMonitor.enabled Create ServiceMonitor Resource for scraping metrics using PrometheusOperator
-        ##
-        enabled: false
-
-        ## @param metrics.serviceMonitor.namespace Namespace in which Prometheus is running
-        ##
-        namespace: ""
-
-        ## @param metrics.serviceMonitor.namespaceSelector The selector of the namespace where the target service is located (defaults to the release namespace)
-        namespaceSelector:
-
-        ## @param metrics.serviceMonitor.jobLabel The name of the label on the target service to use as the job name in prometheus.
-        ##
-        jobLabel: ""
-
-        ## @param metrics.serviceMonitor.interval Interval at which metrics should be scraped
-        ## ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#endpoint
-        ##
-        interval: 30s
-
-        ## @param metrics.serviceMonitor.scrapeTimeout Specify the timeout after which the scrape is ended
-        ## ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#endpoint
-        ##
-        scrapeTimeout: ""
-
-        ## @param metrics.serviceMonitor.labels Extra labels for the ServiceMonitor
-        ##
-        labels: {}
-
+        enabled: true
+        namespace: monitoring 
       rules:
-        # -- Deploy Prometheus Rules (Alerts) for the exporter
-        # @section -- Metrics
-        enabled: false
-        # -- Label on Prometheus Rules CRD Manifest
-        # @section -- Metrics
-        labels: {}
+        enabled: true
         defaults:
-          # -- Add Default Rules
-          # @section -- Metrics
           enabled: true
-          # -- Label on the rules (the severity is already set)
-          # @section -- Metrics
           labels: {}
-          # -- Filter on metrics on alerts (default just for this helm-chart)
-          # @section -- Metrics
           filter: ""
-        # -- Add own Rules to Prometheus Rules
-        # @section -- Metrics
         additionalRules: []
 
     rbac:
