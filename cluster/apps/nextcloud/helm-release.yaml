@@ -37,7 +37,7 @@ spec:
     externalDatabase:
       enabled: true
       type: postgresql
-      host: "192.168.1.134:5432"
+      host: "192.168.1.180:5432"
       database: nextcloud
       existingSecret:
         enabled: true
@@ -46,7 +46,7 @@ spec:
         passwordKey: db-password
     externalRedis:
       enabled: true
-      host: "192.168.1.134"
+      host: "192.168.1.180"
       port: "6379"
       existingSecret:
         enabled: true
