@@ -20,6 +20,6 @@ spec:
     prometheus:
       servicemonitor:
         enabled: true
-        namespace: monitoring 
+        namespace: monitoring
         labels:
           release: kube-prometheus-stack 
