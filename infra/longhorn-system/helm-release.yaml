@@ -7,7 +7,7 @@ spec:
   interval: 5m
   chart:
     spec:
-      chart: longhorn 
+      chart: longhorn
       version: '1.10.1'
       sourceRef:
         kind: HelmRepository
