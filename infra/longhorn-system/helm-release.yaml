@@ -15,7 +15,7 @@ spec:
         namespace: storage
   values:
     ingress:
-      enabled: true 
+      enabled: true
       host: longhorn.homelab.kacperjarocki.dev
       tls: true
       tlsSecret:  longhorn-tls
