@@ -70,7 +70,7 @@ spec:
             secretName: grafana-homelab-kacperjarocki-dev-tls
       persistence:
         enabled: true
-        storageClassName: iscsi
+        storageClassName: longhorn
         size: 30Gi
       initChownData:
         enabled: false
