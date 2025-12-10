@@ -17,3 +17,9 @@ spec:
     crds:
       enabled: true
     installCRDs: true 
+    prometheus:
+      servicemonitor:
+        enabled: true
+        namespace: monitoring 
+        labels:
+          release: kube-prometheus-stack 
