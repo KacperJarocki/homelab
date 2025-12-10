@@ -12,7 +12,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: longhorn
-        namespace: storage
+        namespace: longhorn-system
   values:
     ingress:
       enabled: true
