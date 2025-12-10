@@ -123,7 +123,7 @@ spec:
       annotations: {}
       storageClass: "iscsi"
       accessMode: ReadWriteOnce
-      size: 500Gi
+      size: 200Gi
       nextcloudData:
         enabled: false
         subPath:
@@ -131,7 +131,7 @@ spec:
         storageClass: "iscsi"
         # existingClaim:
         accessMode: ReadWriteOnce
-        size: 10Gi
+        size: 15Gi
     resources: {}
     # resources:
     #   limits:
@@ -306,11 +306,8 @@ spec:
     metrics:
       enabled: true
 
-      replicaCount: 1
-      # Optional: becomes NEXTCLOUD_SERVER env var in the nextcloud-exporter container.
-      # Without it, we will use the full name of the nextcloud service
+      replicaCount: 2
       server: "nextcloud.homelab.kacperjarocki.dev"
-      # The metrics exporter needs to know how you serve Nextcloud either http or https
       https: true
       # Use API token if set, otherwise fall back to password authentication
       # https://github.com/xperimental/nextcloud-exporter#token-authentication
@@ -354,15 +351,9 @@ spec:
 
       service:
         type: ClusterIP
-        # Use serviceLoadBalancerIP to request a specific static IP,
-        # otherwise leave blank
-        loadBalancerIP:
         annotations:
           prometheus.io/scrape: "true"
           prometheus.io/port: "9205"
-        labels: {}
-
-      # -- security context for the metrics CONTAINER in the pod
       securityContext:
         runAsUser: 1000
         runAsNonRoot: true
