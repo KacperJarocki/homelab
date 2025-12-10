@@ -670,7 +670,7 @@ spec:
         #
         # Configures the service's supported IP family policy, can be either:
         #     SingleStack: Single-stack service. The control plane allocates a cluster IP for the Service, using the first configured service cluster IP range.
-        #     PreferDualStack: Allocates IPv4 and IPv6 cluster IPs for the Service.
+        #     PreferDualSt ck: Allocates IPv4 and IPv6 cluster IPs for the Service.
         #     RequireDualStack: Allocates Service .spec.ClusterIPs from both IPv4 and IPv6 address ranges.
         ipFamilyPolicy: ""
         ipFamilies: []
@@ -692,7 +692,7 @@ spec:
         enabled: true
         size: 20Gi
         mountPath: "/vault/data"
-        storageClass: iscsi 
+        storageClass: longhorn 
         accessMode: ReadWriteOnce
         annotations: {}
         labels: {}
@@ -701,7 +701,7 @@ spec:
         enabled: false
         size: 20Gi
         mountPath: "/vault/audit"
-        storageClass: iscsi
+        storageClass: longhorn 
         accessMode: ReadWriteOnce
         annotations: {}
         labels: {}
