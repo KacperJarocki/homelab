@@ -10,3 +10,4 @@ resources:
 - certmanager-issuer.yaml
 - external-secrets.yaml
 - longhorn-system.yaml
+- traefik.yaml
