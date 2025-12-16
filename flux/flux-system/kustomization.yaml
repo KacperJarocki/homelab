@@ -4,6 +4,9 @@ resources:
 - gotk-components.yaml
 - gotk-sync.yaml
 - cluster-kustomization.yaml
-- infra-kustomization.yaml
 - network-metallb-config.yaml
 - network-metallb.yaml
+- certmanager-helm.yaml
+- certmanager-issuer.yaml
+- external-secrets.yaml
+- longhorn-system.yaml
