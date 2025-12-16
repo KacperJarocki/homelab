@@ -22,9 +22,9 @@ spec:
       annotations:
         kubernetes.io/ingress.class: traefik
         kubernetes.io/tls-acme: true
-    metrics:
-      serviceMonitor:
-        enabled: true
-        namespace: monitoring
-        labels:
-          release: kube-prometheus-stack
+    # metrics:
+    #   serviceMonitor:
+    #     enabled: true
+    #     namespace: monitoring
+    #     labels:
+    #       release: kube-prometheus-stack
