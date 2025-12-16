@@ -6,7 +6,7 @@ metadata:
 spec:
   secretName: homelab-kacperjarocki-dev-tls
   issuerRef:
-    name: letsencrypt-http-prd
+    name: letsencrypt-http-prod
     kind: ClusterIssuer
   commonName: "*.homelab.kacperjarocki.dev"
   dnsNames:
