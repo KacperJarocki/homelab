@@ -1,0 +1,72 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: loki
+  namespace: monitoring
+spec:
+  interval: 15m
+  chart:
+    spec:
+      chart: loki
+      version: ">=6.0.0"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: grafana
+      interval: 1h
+
+  valuesFrom:
+    - kind: Secret
+      name: loki-s3-values
+      valuesKey: values.yaml
+
+  values:
+    deploymentMode: SimpleScalable
+
+    minio:
+      enabled: false
+
+    loki:
+      auth_enabled: false
+
+      schemaConfig:
+        configs:
+          - from: "2026-01-01"
+            store: tsdb
+            object_store: s3
+            schema: v13
+            index:
+              prefix: loki_index_
+              period: 24h
+
+      ingester:
+        chunk_encoding: snappy
+
+      querier:
+        max_concurrent: 4
+
+      limits_config:
+        allow_structured_metadata: true
+        volume_enabled: true
+
+    backend:
+      replicas: 2
+      persistence:
+        enabled: true
+        storageClass: longhorn
+        size: 20Gi
+
+    write:
+      replicas: 3
+      persistence:
+        enabled: true
+        storageClass: longhorn
+        size: 50Gi
+
+    read:
+      replicas: 2
+
+    gateway:
+      enabled: true
+      service:
+        type: ClusterIP
