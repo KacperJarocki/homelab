@@ -72,6 +72,16 @@ spec:
     read:
       replicas: 3
 
+    memcachedResults:
+      enabled: true
+      replicas: 1
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
     gateway:
       enabled: true
       service:
