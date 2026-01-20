@@ -37,8 +37,6 @@ spec:
           endpoint: https://rustfs.kacperjarocki.dev
           region: poland
           s3ForcePathStyle: true
-
-
           accessKeyId: loki
           secretAccessKey: ldwGaLxJymHkU3sBfV1T6q0C5XEhKoYrp82tuZWO
 
@@ -62,14 +60,14 @@ spec:
       persistence:
         enabled: true
         storageClass: longhorn
-        size: 30Gi
+        size: 10Gi
 
     backend:
       replicas: 3
       persistence:
         enabled: true
         storageClass: longhorn
-        size: 30Gi
+        size: 10Gi
 
     read:
       replicas: 3
