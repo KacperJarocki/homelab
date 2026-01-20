@@ -29,15 +29,15 @@ spec:
 
       storage:
         type: s3
+        bucketNames:
+          chunks: loki
+          ruler: loki
+          admin: loki
         s3:
           endpoint: https://rustfs.kacperjarocki.dev
           region: poland
           s3ForcePathStyle: true
 
-          bucketNames:
-            chunks: loki
-            ruler: loki
-            admin: loki
 
           accessKeyId: loki
           secretAccessKey: ldwGaLxJymHkU3sBfV1T6q0C5XEhKoYrp82tuZWO
