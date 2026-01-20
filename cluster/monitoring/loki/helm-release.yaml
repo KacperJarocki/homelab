@@ -72,16 +72,22 @@ spec:
     read:
       replicas: 3
 
+
+    memcached:
+      enabled: false
+
+    memcachedChunks:
+      enabled: false
+
     memcachedResults:
-      enabled: true
-      replicas: 1
-      resources:
-        requests:
-          cpu: 50m
-          memory: 64Mi
-        limits:
-          cpu: 200m
-          memory: 256Mi
+      enabled: false
+
+    memcachedIndexQueries:
+      enabled: false
+
+    memcachedIndexWrites:
+      enabled: false
+
     gateway:
       enabled: true
       service:
