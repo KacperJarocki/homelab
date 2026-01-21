@@ -11,3 +11,4 @@ resources:
 - external-secrets.yaml
 - longhorn-system.yaml
 - traefik.yaml
+- ../../cluster/monitoring/loki/kustomize.yaml
