@@ -6,6 +6,8 @@ metadata:
 spec:
   dependsOn:
     - name:  longhorn-system
+    - name: alloy-config
+      namespace: monitoring
   interval: 1m
   path: ./cluster
   prune: true
