@@ -4,10 +4,10 @@ metadata:
   name: grafana-homelab-dev
   namespace: monitoring
 spec:
-  secretName: grafana-homelab-kacperjarocki-dev-tls   
+  secretName: monitoring-homelab-kacperjarocki-dev-tls
   issuerRef:
     name: letsencrypt-http-prod
     kind: ClusterIssuer
-  commonName: grafana.homelab.kacperjarocki.dev
   dnsNames:
     - grafana.homelab.kacperjarocki.dev
+    - prometheus.homelab.kacperjarocki.dev
