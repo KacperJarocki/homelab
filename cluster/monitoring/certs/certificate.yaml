@@ -6,7 +6,7 @@ metadata:
 spec:
   secretName: monitoring-homelab-kacperjarocki-dev-tls
   issuerRef:
-    name: letsencrypt-dns-staging
+    name: letsencrypt-http-prod
     kind: ClusterIssuer
   dnsNames:
     - grafana.homelab.kacperjarocki.dev
