@@ -4,4 +4,8 @@ metadata:
   name: cluster-kustomization
   namespace: flux-system
 resources:
+  - monitoring/namespace.yaml
   - monitoring/loki
+  - monitoring/prometheus
+  - monitoring/kube-prometheus-stack
+  - monitoring/grafana

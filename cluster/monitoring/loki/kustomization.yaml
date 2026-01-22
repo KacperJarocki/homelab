@@ -3,8 +3,11 @@ kind: Kustomization
 metadata:
   name: alloy-config
   namespace: monitoring
-
 namespace: monitoring
+resources:
+  - alloy-helm-release.yaml
+  - helm-release.yaml
+  - helm-repository.yaml
 configMapGenerator:
   - name: alloy
     files:
