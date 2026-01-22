@@ -4,6 +4,7 @@ metadata:
   name: alloy-config
   namespace: monitoring
 
+namespace: monitoring
 configMapGenerator:
   - name: alloy
     files:

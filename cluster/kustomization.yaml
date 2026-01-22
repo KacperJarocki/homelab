@@ -5,4 +5,3 @@ metadata:
   namespace: flux-system
 resources:
   - monitoring/loki
-
