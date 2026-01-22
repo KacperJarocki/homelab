@@ -23,38 +23,6 @@ spec:
   values:
     grafana:
       enabled: true
-      dashboardProviders:
-          dashboardproviders.yaml:
-            apiVersion: 1
-            providers:
-            - name: 'grafana-dashboards-kubernetes'
-              orgId: 1
-              folder: 'Kubernetes'
-              type: file
-              disableDeletion: true
-              editable: true
-              options:
-                path: /var/lib/grafana/dashboards/grafana-dashboards-kubernetes
-          dashboards:
-            grafana-dashboards-kubernetes:
-              k8s-system-api-server:
-                url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-system-api-server.json
-                token: ''
-              k8s-system-coredns:
-                url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-system-coredns.json
-                token: ''
-              k8s-views-global:
-                url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-global.json
-                token: ''
-              k8s-views-namespaces:
-                url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-namespaces.json
-                token: ''
-              k8s-views-nodes:
-                url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-nodes.json
-                token: ''
-              k8s-views-pods:
-                url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-pods.json
-                token: ''
       ingress:
         enabled: true
         annotations:
@@ -67,7 +35,7 @@ spec:
         tls:
           - hosts:
               - grafana.homelab.kacperjarocki.dev
-            secretName: grafana-homelab-kacperjarocki-dev-tls
+            secretName: monitoring-homelab-kacperjarocki-dev-tls
       persistence:
         enabled: true
         storageClassName: longhorn
@@ -81,20 +49,7 @@ spec:
 
       sidecar:
         dashboards:
-          enabled: false
-          label: grafana_dashboard
-          labelValue: "1"
-          searchNamespace: ALL
-          enableNewTablePanelSyntax: false
-          annotations: {}
-          multicluster:
-            global:
-              enabled: false
-            etcd:
-              enabled: false
-          provider:
-            allowUiUpdates: false
-      additionalDataSources: []
+          enabled: true
 
     kubelet:
       enabled: true
@@ -177,7 +132,7 @@ spec:
         path: /
         pathType: Prefix
         tls: 
-           - secretName: prometheus-homelab-kacperjarocki-dev-tls
+           - secretName: monitoring-homelab-kacperjarocki-dev-tls
              hosts:
                - prometheus.homelab.kacperjarocki.dev
         additionalScrapeConfigs: []

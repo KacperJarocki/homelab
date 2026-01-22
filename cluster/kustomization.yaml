@@ -6,6 +6,5 @@ metadata:
 resources:
   - monitoring/namespace.yaml
   - monitoring/loki
-  - monitoring/prometheus
+  - monitoring/certs
   - monitoring/kube-prometheus-stack
-  - monitoring/grafana
