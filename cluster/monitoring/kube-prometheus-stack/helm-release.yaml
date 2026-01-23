@@ -24,7 +24,7 @@ spec:
     grafana:
       enabled: true
       ingress:
-        enabled: true
+        enabled: false
         hosts:
           - grafana.homelab.kacperjarocki.dev
         path: /
@@ -118,7 +118,7 @@ spec:
     prometheus:
       enabled: true
       ingress:
-        enabled: true
+        enabled: false
         ingressClassName: ""
         extraLabels: {}
         hosts: 
