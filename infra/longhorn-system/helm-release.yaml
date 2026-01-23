@@ -19,9 +19,6 @@ spec:
       host: longhorn.homelab.kacperjarocki.dev
       tls: true
       tlsSecret:  longhorn-tls
-      annotations:
-        kubernetes.io/ingress.class: traefik
-        kubernetes.io/tls-acme: true
     # metrics:
     #   serviceMonitor:
     #     enabled: true
