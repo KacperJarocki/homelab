@@ -74,11 +74,7 @@ spec:
 
 
     memcached:
-      enabled: false
-
-    memcachedChunks:
-      enabled: true
-      replicas: 1
+      enabled: true 
       resources:
         requests:
           memory: 4Gi
@@ -86,15 +82,6 @@ spec:
         limits:
           memory: 4Gi
           cpu: 1
-
-    memcachedResults:
-      enabled: false
-
-    memcachedIndexQueries:
-      enabled: false
-
-    memcachedIndexWrites:
-      enabled: false
 
     gateway:
       enabled: true
