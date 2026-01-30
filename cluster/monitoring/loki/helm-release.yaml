@@ -74,7 +74,7 @@ spec:
 
 
     memcached:
-      enabled: true 
+      enabled: true
       resources:
         requests:
           memory: 4Gi
@@ -83,6 +83,22 @@ spec:
           memory: 4Gi
           cpu: 1
 
+    resultsCache:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+    memcachedExporter:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
     gateway:
       enabled: true
       service:
