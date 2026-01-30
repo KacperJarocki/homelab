@@ -82,23 +82,30 @@ spec:
         limits:
           memory: 4Gi
           cpu: 1
-
+    chunksCache:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 1000Mi
+        limits:
+          cpu: 200m
+          memory: 1000Mi
     resultsCache:
       resources:
         requests:
           cpu: 100m
-          memory: 128Mi
+          memory: 1000Mi
         limits:
           cpu: 200m
-          memory: 256Mi
+          memory: 1000Mi
     memcachedExporter:
       resources:
         requests:
           cpu: 100m
-          memory: 128Mi
+          memory: 1000Mi
         limits:
           cpu: 200m
-          memory: 256Mi
+          memory: 1000Mi
     gateway:
       enabled: true
       service:
