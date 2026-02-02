@@ -5,6 +5,7 @@ metadata:
   namespace: flux-system
 resources:
   - monitoring/namespace.yaml
+  - opnsense
   - monitoring/loki
   - monitoring/certs
   - monitoring/kube-prometheus-stack

@@ -8,6 +8,12 @@ loki.write "default" {
   }
 }
 
+prometheus.remote_write "default" {
+  endpoint { 
+      url = "http://kube-prometheus-stack-prometheus:9090/api/v1/write"
+    }
+} 
+
 local.file_match "node_logs" {
   path_targets = [{
       __path__  = "/var/log/syslog",
@@ -95,4 +101,26 @@ loki.process "pod_logs" {
   }
 
   forward_to = [loki.write.default.receiver]
+}
+
+prometheus.scrape "opnsense_node"{
+ targets = [{
+    __address__ = "10.20.0.1:9100",
+    instance = "opnsense",
+    job = "node_exporter",
+    group = "firewall",
+  }]
+  forward_to = [prometheus.remote_write.default.receiver]
+  scrape_interval = "15s"
+}
+
+prometheus.scrape "opnsense_exporter"{
+ targets = [{
+    __address__ = "opnsense-exporter:8080",
+    instance = "opnsense",
+    job = "opnsense_exporter",
+    group = "firewall",
+  }]
+  forward_to = [prometheus.remote_write.default.receiver]
+  scrape_interval = "15s"
 }
