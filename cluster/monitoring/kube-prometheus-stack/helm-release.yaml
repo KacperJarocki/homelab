@@ -148,6 +148,21 @@ spec:
           repository: prometheus-operator/prometheus-config-reloader
     prometheus:
       enabled: true
+      prometheusSpec:
+        enableRemoteWriteReceiver: true
+        persistentVolumeClaimRetentionPolicy:
+          whenDeleted: Retain
+          whenScaled: Retain
+        enableOTLPReceiver: false
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: longhorn
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 5Gi
       ingress:
         enabled: true
         ingressClassName: ""
