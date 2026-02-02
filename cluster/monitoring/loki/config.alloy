@@ -113,3 +113,14 @@ prometheus.scrape "opnsense_node"{
   forward_to = [prometheus.remote_write.default.receiver]
   scrape_interval = "15s"
 }
+
+prometheus.scrape "opnsense_exporter"{
+ targets = [{
+    __address__ = "opnsense-exporter:8080",
+    instance = "opnsense",
+    job = "opnsense_exporter",
+    group = "firewall",
+  }]
+  forward_to = [prometheus.remote_write.default.receiver]
+  scrape_interval = "15s"
+}
