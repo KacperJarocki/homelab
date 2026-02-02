@@ -109,6 +109,7 @@ prometheus.scrape "opnsense_node"{
     instance = "opnsense",
     job = "node_exporter",
     group = "firewall",
+    host = "opnsense-1",
   }]
   forward_to = [prometheus.remote_write.default.receiver]
   scrape_interval = "15s"
@@ -116,10 +117,11 @@ prometheus.scrape "opnsense_node"{
 
 prometheus.scrape "opnsense_exporter"{
  targets = [{
-    __address__ = "opnsense-exporter:8080",
+    __address__ = "opnsense-exporter.<NAMESPACE_EXPORTERA>.svc.cluster.local:8080",
     instance = "opnsense",
     job = "opnsense_exporter",
     group = "firewall",
+    host = "opnsense-1",
   }]
   forward_to = [prometheus.remote_write.default.receiver]
   scrape_interval = "15s"
