@@ -117,7 +117,7 @@ prometheus.scrape "opnsense_node"{
 
 prometheus.scrape "opnsense_exporter"{
  targets = [{
-    __address__ = "opnsense-exporter.<NAMESPACE_EXPORTERA>.svc.cluster.local:8080",
+    __address__ = "opnsense-exporter.opnsense.svc.cluster.local:8080",
     instance = "opnsense",
     job = "opnsense_exporter",
     group = "firewall",
