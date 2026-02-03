@@ -6,6 +6,7 @@ metadata:
 resources:
   - monitoring/namespace.yaml
   - opnsense
+  - docmost
   - monitoring/loki
   - monitoring/certs
   - monitoring/kube-prometheus-stack
