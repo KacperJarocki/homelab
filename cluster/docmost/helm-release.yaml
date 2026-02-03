@@ -21,7 +21,7 @@ spec:
         - host: docs.homelab.kacperjarocki.dev
           paths:
             - path: /
-              pathType: ImplemetationSpecific
+              pathType: ImplementationSpecific
       tls:
         - secretName: docmost-tls
           hosts:
