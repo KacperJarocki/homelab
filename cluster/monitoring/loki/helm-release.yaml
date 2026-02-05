@@ -75,13 +75,6 @@ spec:
 
     memcached:
       enabled: true
-      resources:
-        requests:
-          memory: 4Gi
-          cpu: 200m
-        limits:
-          memory: 4Gi
-          cpu: 1
     chunksCache:
       resources:
         requests:
