@@ -1,0 +1,39 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cap-container-limits
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: cap-limits
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+      validate:
+        message: "Limity za duże (cpu>4, mem>8Gi) albo brak limitów."
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.resources.limits.cpu || '' }}"
+                    operator: Equals
+                    value: ""
+                  - key: "{{ element.resources.limits.memory || '' }}"
+                    operator: Equals
+                    value: ""
+                  - key: "{{ element.resources.limits.cpu }}"
+                    operator: GreaterThan
+                    value: "4"
+                  - key: "{{ element.resources.limits.memory }}"
+                    operator: GreaterThan
+                    value: "8Gi"

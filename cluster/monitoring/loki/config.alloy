@@ -126,3 +126,76 @@ prometheus.scrape "opnsense_exporter"{
   forward_to = [prometheus.remote_write.default.receiver]
   scrape_interval = "15s"
 }
+
+
+prometheus.scrape "kyverno_admission" {
+  targets = [{
+    __address__ = "kyverno-svc-metrics.kyverno-system.svc.cluster.local:8000",
+    job         = "kyverno",
+
+    namespace   = "kyverno-system",
+    service     = "kyverno-svc-metrics",
+    pod         = "kyverno-admission",   # dashboard-friendly (synthetic)
+    instance    = "kyverno-svc-metrics:8000",
+
+    component   = "admission-controller",
+    cluster     = "k3s-homelab",
+  }]
+  forward_to      = [prometheus.remote_write.default.receiver]
+  scrape_interval = "15s"
+  metrics_path    = "/metrics"
+}
+
+prometheus.scrape "kyverno_background" {
+  targets = [{
+    __address__ = "kyverno-background-controller-metrics.kyverno-system.svc.cluster.local:8000",
+    job         = "kyverno",
+
+    namespace   = "kyverno-system",
+    service     = "kyverno-background-controller-metrics",
+    pod         = "kyverno-background",  # synthetic
+    instance    = "kyverno-background-controller-metrics:8000",
+
+    component   = "background-controller",
+    cluster     = "k3s-homelab",
+  }]
+  forward_to      = [prometheus.remote_write.default.receiver]
+  scrape_interval = "15s"
+  metrics_path    = "/metrics"
+}
+
+prometheus.scrape "kyverno_reports" {
+  targets = [{
+    __address__ = "kyverno-reports-controller-metrics.kyverno-system.svc.cluster.local:8000",
+    job         = "kyverno",
+
+    namespace   = "kyverno-system",
+    service     = "kyverno-reports-controller-metrics",
+    pod         = "kyverno-reports",     # synthetic
+    instance    = "kyverno-reports-controller-metrics:8000",
+
+    component   = "reports-controller",
+    cluster     = "k3s-homelab",
+  }]
+  forward_to      = [prometheus.remote_write.default.receiver]
+  scrape_interval = "15s"
+  metrics_path    = "/metrics"
+}
+
+prometheus.scrape "kyverno_cleanup" {
+  targets = [{
+    __address__ = "kyverno-cleanup-controller-metrics.kyverno-system.svc.cluster.local:8000",
+    job         = "kyverno",
+
+    namespace   = "kyverno-system",
+    service     = "kyverno-cleanup-controller-metrics",
+    pod         = "kyverno-cleanup",     # synthetic
+    instance    = "kyverno-cleanup-controller-metrics:8000",
+
+    component   = "cleanup-controller",
+    cluster     = "k3s-homelab",
+  }]
+  forward_to      = [prometheus.remote_write.default.receiver]
+  scrape_interval = "15s"
+  metrics_path    = "/metrics"
+}
