@@ -72,7 +72,6 @@ spec:
     read:
       replicas: 3
 
-
     memcached:
       enabled: true
     chunksCache:
