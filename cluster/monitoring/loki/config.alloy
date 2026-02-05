@@ -135,7 +135,7 @@ prometheus.scrape "kyverno_admission" {
 
     namespace   = "kyverno-system",
     service     = "kyverno-svc-metrics",
-    pod         = "kyverno-admission",   # dashboard-friendly (synthetic)
+    pod         = "kyverno-admission",
     instance    = "kyverno-svc-metrics:8000",
 
     component   = "admission-controller",
@@ -153,7 +153,7 @@ prometheus.scrape "kyverno_background" {
 
     namespace   = "kyverno-system",
     service     = "kyverno-background-controller-metrics",
-    pod         = "kyverno-background",  # synthetic
+    pod         = "kyverno-background",
     instance    = "kyverno-background-controller-metrics:8000",
 
     component   = "background-controller",
@@ -171,7 +171,7 @@ prometheus.scrape "kyverno_reports" {
 
     namespace   = "kyverno-system",
     service     = "kyverno-reports-controller-metrics",
-    pod         = "kyverno-reports",     # synthetic
+    pod         = "kyverno-reports",
     instance    = "kyverno-reports-controller-metrics:8000",
 
     component   = "reports-controller",
@@ -189,7 +189,7 @@ prometheus.scrape "kyverno_cleanup" {
 
     namespace   = "kyverno-system",
     service     = "kyverno-cleanup-controller-metrics",
-    pod         = "kyverno-cleanup",     # synthetic
+    pod         = "kyverno-cleanup",
     instance    = "kyverno-cleanup-controller-metrics:8000",
 
     component   = "cleanup-controller",
