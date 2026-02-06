@@ -7,7 +7,7 @@ spec:
   interval: 15m
   chart:
     spec:
-      chart: immich 
+      chart: immich
       version: "0.10.3"
       sourceRef:
         kind: HelmRepository
@@ -21,40 +21,68 @@ spec:
           main:
             image:
               tag: v2.5.3
+            resources:
+              requests:
+                cpu: "200m" 
+                memory: 1Gi
+              limits:
+                cpu: "2"
+                memory: 2Gi
+
     immich:
       metrics:
         enabled: true
       persistence:
         library:
           existingClaim: immich
+
     valkey:
       enabled: true
+      controllers:
+        main:
+          containers:
+            main:
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi
+
     server:
       controllers:
-          main:
-            containers:
-              main:
-                env:
-                  DB_HOSTNAME:
-                    valueFrom:
-                      secretKeyRef:
-                        name: immich-database-app
-                        key: host
-                  DB_USERNAME:
-                    valueFrom:
-                      secretKeyRef:
-                        name: immich-database-app
-                        key: user
-                  DB_PASSWORD:
-                    valueFrom:
-                      secretKeyRef:
-                        name: immich-database-app
-                        key: password
-                  DB_DATABASE_NAME:
-                    valueFrom:
-                      secretKeyRef:
-                        name: immich-database-app
-                        key: dbname
+        main:
+          containers:
+            main:
+              env:
+                DB_HOSTNAME:
+                  valueFrom:
+                    secretKeyRef:
+                      name: immich-database-app
+                      key: host
+                DB_USERNAME:
+                  valueFrom:
+                    secretKeyRef:
+                      name: immich-database-app
+                      key: user
+                DB_PASSWORD:
+                  valueFrom:
+                    secretKeyRef:
+                      name: immich-database-app
+                      key: password
+                DB_DATABASE_NAME:
+                  valueFrom:
+                    secretKeyRef:
+                      name: immich-database-app
+                      key: dbname
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: 2Gi
+                limits:
+                  cpu: "2"
+                  memory: 6Gi
       ingress:
         main:
           enabled: true
