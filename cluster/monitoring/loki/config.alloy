@@ -1,7 +1,8 @@
 logging {
-  level = "info"
+  level  = "info"
   format = "logfmt"
 }
+
 loki.write "default" {
   endpoint {
     url = "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
@@ -9,17 +10,21 @@ loki.write "default" {
 }
 
 prometheus.remote_write "default" {
-  endpoint { 
-      url = "http://kube-prometheus-stack-prometheus:9090/api/v1/write"
-    }
-} 
+  endpoint {
+    url = "http://kube-prometheus-stack-prometheus:9090/api/v1/write"
+  }
+}
+
+//////////////////////////////////////
+// LOGS (bez zmian)
+//////////////////////////////////////
 
 local.file_match "node_logs" {
   path_targets = [{
-      __path__  = "/var/log/syslog",
-      job       = "node/syslog",
-      node_name = sys.env("HOSTNAME"),
-      cluster   = "k3s-homelab",
+    __path__  = "/var/log/syslog",
+    job       = "node/syslog",
+    node_name = sys.env("HOSTNAME"),
+    cluster   = "k3s-homelab",
   }]
 }
 
@@ -31,7 +36,7 @@ loki.source.file "node_logs" {
 discovery.kubernetes "pod" {
   role = "pod"
   selectors {
-    role = "pod"
+    role  = "pod"
     field = "spec.nodeName=" + coalesce(sys.env("HOSTNAME"), constants.hostname)
   }
 }
@@ -41,50 +46,50 @@ discovery.relabel "pod_logs" {
 
   rule {
     source_labels = ["__meta_kubernetes_namespace"]
-    action = "replace"
-    target_label = "namespace"
+    action        = "replace"
+    target_label  = "namespace"
   }
 
   rule {
     source_labels = ["__meta_kubernetes_pod_name"]
-    action = "replace"
-    target_label = "pod"
+    action        = "replace"
+    target_label  = "pod"
   }
 
   rule {
     source_labels = ["__meta_kubernetes_pod_container_name"]
-    action = "replace"
-    target_label = "container"
+    action        = "replace"
+    target_label  = "container"
   }
 
   rule {
     source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
-    action = "replace"
-    target_label = "app"
+    action        = "replace"
+    target_label  = "app"
   }
 
   rule {
     source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_container_name"]
-    action = "replace"
-    target_label = "job"
-    separator = "/"
-    replacement = "$1"
+    action        = "replace"
+    target_label  = "job"
+    separator     = "/"
+    replacement   = "$1"
   }
 
   rule {
     source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
-    action = "replace"
-    target_label = "__path__"
-    separator = "/"
-    replacement = "/var/log/pods/*$1/*.log"
+    action        = "replace"
+    target_label  = "__path__"
+    separator     = "/"
+    replacement   = "/var/log/pods/*$1/*.log"
   }
 
   rule {
     source_labels = ["__meta_kubernetes_pod_container_id"]
-    action = "replace"
-    target_label = "container_runtime"
-    regex = "^(\\S+):\\/\\/.+$"
-    replacement = "$1"
+    action        = "replace"
+    target_label  = "container_runtime"
+    regex         = "^(\\S+):\\/\\/.+$"
+    replacement   = "$1"
   }
 }
 
@@ -95,49 +100,249 @@ loki.source.kubernetes "pod_logs" {
 
 loki.process "pod_logs" {
   stage.static_labels {
-      values = {
-        cluster = "k3s-homelab",
-      }
+    values = {
+      cluster = "k3s-homelab",
+    }
   }
 
   forward_to = [loki.write.default.receiver]
 }
 
-prometheus.scrape "opnsense_node"{
- targets = [{
+//////////////////////////////////////
+// METRICS (NOWE: discovery + scrape)
+//////////////////////////////////////
+
+// --- Pods with prometheus.io/scrape="true"
+discovery.kubernetes "pods_metrics" {
+  role = "pod"
+}
+
+discovery.relabel "pods_metrics" {
+  targets = discovery.kubernetes.pods_metrics.targets
+
+  // scrape only annotated pods
+  rule {
+    source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+    regex         = "true"
+    action        = "keep"
+  }
+
+  // only running pods
+  rule {
+    source_labels = ["__meta_kubernetes_pod_phase"]
+    regex         = "Running"
+    action        = "keep"
+  }
+
+  // address from podIP + annotation port (default: 9102 if not set)
+  rule {
+    source_labels = ["__meta_kubernetes_pod_ip", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+    regex         = "(.+);(.+)"
+    target_label  = "__address__"
+    replacement   = "$1:$2"
+    action        = "replace"
+  }
+
+  // metrics path from annotation (optional)
+  rule {
+    source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+    regex         = "(.+)"
+    target_label  = "__metrics_path__"
+    action        = "replace"
+  }
+
+  // scheme from annotation (optional)
+  rule {
+    source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scheme"]
+    regex         = "(https?)"
+    target_label  = "__scheme__"
+    action        = "replace"
+  }
+
+  // nice labels
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label  = "namespace"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_name"]
+    target_label  = "pod"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_node_name"]
+    target_label  = "node"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+    target_label  = "app"
+  }
+
+  // static cluster label
+  rule {
+    target_label = "cluster"
+    replacement  = "k3s-homelab"
+    action       = "replace"
+  }
+}
+
+prometheus.scrape "pods_annotated" {
+  targets         = discovery.relabel.pods_metrics.output
+  forward_to      = [prometheus.remote_write.default.receiver]
+  scrape_interval = "30s"
+}
+
+
+// --- Services with prometheus.io/scrape="true"
+discovery.kubernetes "services_metrics" {
+  role = "endpoints"
+}
+
+discovery.relabel "services_metrics" {
+  targets = discovery.kubernetes.services_metrics.targets
+
+  // scrape only annotated services
+  rule {
+    source_labels = ["__meta_kubernetes_service_annotation_prometheus_io_scrape"]
+    regex         = "true"
+    action        = "keep"
+  }
+
+  // metrics path (optional)
+  rule {
+    source_labels = ["__meta_kubernetes_service_annotation_prometheus_io_path"]
+    regex         = "(.+)"
+    target_label  = "__metrics_path__"
+    action        = "replace"
+  }
+
+  // scheme (optional)
+  rule {
+    source_labels = ["__meta_kubernetes_service_annotation_prometheus_io_scheme"]
+    regex         = "(https?)"
+    target_label  = "__scheme__"
+    action        = "replace"
+  }
+
+  // if annotation prometheus.io/port exists, override address port
+  rule {
+    source_labels = ["__address__", "__meta_kubernetes_service_annotation_prometheus_io_port"]
+    regex         = "([^:]+)(?::\\d+)?;(.+)"
+    target_label  = "__address__"
+    replacement   = "$1:$2"
+    action        = "replace"
+  }
+
+  // nice labels
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label  = "namespace"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_service_name"]
+    target_label  = "service"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_endpoint_port_name"]
+    target_label  = "port_name"
+  }
+
+  rule {
+    target_label = "cluster"
+    replacement  = "k3s-homelab"
+    action       = "replace"
+  }
+}
+
+prometheus.scrape "services_annotated" {
+  targets         = discovery.relabel.services_metrics.output
+  forward_to      = [prometheus.remote_write.default.receiver]
+  scrape_interval = "30s"
+}
+
+
+// --- kube-state-metrics (po labelu serwisu z chartu)
+discovery.relabel "kube_state_metrics" {
+  targets = discovery.kubernetes.services_metrics.targets
+
+  rule {
+    source_labels = ["__meta_kubernetes_service_label_app_kubernetes_io_name"]
+    regex         = "kube-state-metrics"
+    action        = "keep"
+  }
+
+  rule {
+    target_label = "cluster"
+    replacement  = "k3s-homelab"
+    action       = "replace"
+  }
+}
+
+prometheus.scrape "kube_state_metrics" {
+  targets         = discovery.relabel.kube_state_metrics.output
+  forward_to      = [prometheus.remote_write.default.receiver]
+  scrape_interval = "30s"
+}
+
+
+// --- node-exporter (po labelu serwisu z chartu)
+discovery.relabel "node_exporter" {
+  targets = discovery.kubernetes.services_metrics.targets
+
+  rule {
+    source_labels = ["__meta_kubernetes_service_label_app_kubernetes_io_name"]
+    regex         = "prometheus-node-exporter"
+    action        = "keep"
+  }
+
+  rule {
+    target_label = "cluster"
+    replacement  = "k3s-homelab"
+    action       = "replace"
+  }
+}
+
+prometheus.scrape "node_exporter" {
+  targets         = discovery.relabel.node_exporter.output
+  forward_to      = [prometheus.remote_write.default.receiver]
+  scrape_interval = "30s"
+}
+
+//////////////////////////////////////
+// Twoje statyczne scrape’y (bez zmian)
+//////////////////////////////////////
+
+prometheus.scrape "opnsense_node" {
+  targets = [{
     __address__ = "10.20.0.1:9100",
-    instance = "opnsense",
-    job = "node_exporter",
-    group = "firewall",
-    host = "opnsense-1",
+    instance    = "opnsense",
+    job         = "node_exporter",
+    group       = "firewall",
+    host        = "opnsense-1",
   }]
-  forward_to = [prometheus.remote_write.default.receiver]
+  forward_to      = [prometheus.remote_write.default.receiver]
   scrape_interval = "15s"
 }
 
-prometheus.scrape "opnsense_exporter"{
- targets = [{
+prometheus.scrape "opnsense_exporter" {
+  targets = [{
     __address__ = "opnsense-exporter.opnsense.svc.cluster.local:8080",
-    instance = "opnsense",
-    job = "opnsense_exporter",
-    group = "firewall",
-    host = "opnsense-1",
+    instance    = "opnsense",
+    job         = "opnsense_exporter",
+    group       = "firewall",
+    host        = "opnsense-1",
   }]
-  forward_to = [prometheus.remote_write.default.receiver]
+  forward_to      = [prometheus.remote_write.default.receiver]
   scrape_interval = "15s"
 }
-
 
 prometheus.scrape "kyverno_admission" {
   targets = [{
     __address__ = "kyverno-svc-metrics.kyverno-system.svc.cluster.local:8000",
     job         = "kyverno",
-
     namespace   = "kyverno-system",
     service     = "kyverno-svc-metrics",
     pod         = "kyverno-admission",
     instance    = "kyverno-svc-metrics:8000",
-
     component   = "admission-controller",
     cluster     = "k3s-homelab",
   }]
@@ -150,12 +355,10 @@ prometheus.scrape "kyverno_background" {
   targets = [{
     __address__ = "kyverno-background-controller-metrics.kyverno-system.svc.cluster.local:8000",
     job         = "kyverno",
-
     namespace   = "kyverno-system",
     service     = "kyverno-background-controller-metrics",
     pod         = "kyverno-background",
     instance    = "kyverno-background-controller-metrics:8000",
-
     component   = "background-controller",
     cluster     = "k3s-homelab",
   }]
@@ -168,12 +371,10 @@ prometheus.scrape "kyverno_reports" {
   targets = [{
     __address__ = "kyverno-reports-controller-metrics.kyverno-system.svc.cluster.local:8000",
     job         = "kyverno",
-
     namespace   = "kyverno-system",
     service     = "kyverno-reports-controller-metrics",
     pod         = "kyverno-reports",
     instance    = "kyverno-reports-controller-metrics:8000",
-
     component   = "reports-controller",
     cluster     = "k3s-homelab",
   }]
@@ -186,12 +387,10 @@ prometheus.scrape "kyverno_cleanup" {
   targets = [{
     __address__ = "kyverno-cleanup-controller-metrics.kyverno-system.svc.cluster.local:8000",
     job         = "kyverno",
-
     namespace   = "kyverno-system",
     service     = "kyverno-cleanup-controller-metrics",
     pod         = "kyverno-cleanup",
     instance    = "kyverno-cleanup-controller-metrics:8000",
-
     component   = "cleanup-controller",
     cluster     = "k3s-homelab",
   }]
