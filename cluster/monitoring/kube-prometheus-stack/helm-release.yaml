@@ -156,7 +156,7 @@ spec:
       prometheusConfigReloader:
         image:
           registry: quay.io
-          repository: pr-operator/prometheus-config-reloader
+          repository: prometheus-operator/prometheus-config-reloader
 
     prometheus:
       enabled: true
