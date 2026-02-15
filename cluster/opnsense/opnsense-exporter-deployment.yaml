@@ -68,7 +68,7 @@ spec:
               cpu: 100m
             limits:
               memory: 128Mi
-              cpu: 500m
+              cpu: 256m
       volumes:
         - name: api-key-vol
           secret:
