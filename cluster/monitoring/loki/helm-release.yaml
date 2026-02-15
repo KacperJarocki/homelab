@@ -17,7 +17,7 @@ spec:
   values:
     loki:
       commonConfig:
-        replication_factor: 1
+        replication_factor: 3
       schemaConfig:
         configs:
           - from: "2024-04-01"
@@ -51,7 +51,9 @@ spec:
     deploymentMode: SingleBinary
 
     singleBinary:
-      replicas: 1
+      replicas: 3
+      persistence:
+          size: 10Gi
     backend:
       replicas: 0
     read:
@@ -85,27 +87,23 @@ spec:
       resources:
         requests:
           cpu: 100m
-          memory: 1000Mi
+          memory: 500Mi
         limits:
           cpu: 200m
-          memory: 1000Mi
+          memory: 500Mi
     resultsCache:
       resources:
         requests:
           cpu: 100m
-          memory: 1000Mi
+          memory: 500Mi
         limits:
           cpu: 200m
-          memory: 1000Mi
+          memory: 500Mi
     memcachedExporter:
       resources:
         requests:
           cpu: 100m
-          memory: 1000Mi
+          memory: 500Mi
         limits:
           cpu: 200m
-          memory: 1000Mi
-    gateway:
-      enabled: true
-      service:
-        type: ClusterIP
+          memory: 500Mi
