@@ -109,12 +109,20 @@ loki.process "pod_logs" {
 }
 
 //////////////////////////////////////
-// METRICS (NOWE: discovery + scrape)
+// METRICS (POPRAWIONE: sharding po nodzie)
 //////////////////////////////////////
+
+// ======================================================
+// PODS: tylko pody na bieżącym nodzie (DaemonSet-safe)
+// ======================================================
 
 // --- Pods with prometheus.io/scrape="true"
 discovery.kubernetes "pods_metrics" {
   role = "pod"
+  selectors {
+    role  = "pod"
+    field = "spec.nodeName=" + coalesce(sys.env("HOSTNAME"), constants.hostname)
+  }
 }
 
 discovery.relabel "pods_metrics" {
@@ -134,12 +142,21 @@ discovery.relabel "pods_metrics" {
     action        = "keep"
   }
 
-  // address from podIP + annotation port (default: 9102 if not set)
+  // address from podIP + annotation port (if set)
   rule {
     source_labels = ["__meta_kubernetes_pod_ip", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
     regex         = "(.+);(.+)"
     target_label  = "__address__"
     replacement   = "$1:$2"
+    action        = "replace"
+  }
+
+  // default port if prometheus.io/port is missing
+  rule {
+    source_labels = ["__meta_kubernetes_pod_ip", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+    regex         = "(.+);"
+    target_label  = "__address__"
+    replacement   = "$1:9102"
     action        = "replace"
   }
 
@@ -192,6 +209,10 @@ prometheus.scrape "pods_annotated" {
 }
 
 
+// ======================================================
+// SERVICES/ENDPOINTS: shard po nodzie (DaemonSet-safe)
+// ======================================================
+
 // --- Services with prometheus.io/scrape="true"
 discovery.kubernetes "services_metrics" {
   role = "endpoints"
@@ -199,6 +220,13 @@ discovery.kubernetes "services_metrics" {
 
 discovery.relabel "services_metrics" {
   targets = discovery.kubernetes.services_metrics.targets
+
+  // shard per node – keep only endpoints scheduled on this node
+  rule {
+    source_labels = ["__meta_kubernetes_endpoint_node_name"]
+    regex         = coalesce(sys.env("HOSTNAME"), constants.hostname)
+    action        = "keep"
+  }
 
   // scrape only annotated services
   rule {
@@ -260,9 +288,12 @@ prometheus.scrape "services_annotated" {
 }
 
 
-// --- kube-state-metrics (po labelu serwisu z chartu)
+// ======================================================
+// kube-state-metrics: weź już “oshardowane” endpoints
+// ======================================================
+
 discovery.relabel "kube_state_metrics" {
-  targets = discovery.kubernetes.services_metrics.targets
+  targets = discovery.relabel.services_metrics.output
 
   rule {
     source_labels = ["__meta_kubernetes_service_label_app_kubernetes_io_name"]
@@ -284,9 +315,12 @@ prometheus.scrape "kube_state_metrics" {
 }
 
 
-// --- node-exporter (po labelu serwisu z chartu)
+// ======================================================
+// node-exporter: weź już “oshardowane” endpoints
+// ======================================================
+
 discovery.relabel "node_exporter" {
-  targets = discovery.kubernetes.services_metrics.targets
+  targets = discovery.relabel.services_metrics.output
 
   rule {
     source_labels = ["__meta_kubernetes_service_label_app_kubernetes_io_name"]
