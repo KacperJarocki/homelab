@@ -18,13 +18,13 @@ jobs:
           fetch-depth: 0   
           
       - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v4.2.0
+        uses: gittools/actions/gitversion/setup@v4.3.2
         with:
           versionSpec: '6.3.0'
 
       - name: Determine Version
         id: version_step
-        uses: gittools/actions/gitversion/execute@v4.2.0
+        uses: gittools/actions/gitversion/execute@v4.3.2
 
       - name: Show Version Info
         run: |
