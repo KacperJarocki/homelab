@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: cap-container-limits
 spec:
-  validationFailureAction: Audit
+  validationFailureAction: Enforce
   background: true
   rules:
     - name: cap-limits
@@ -17,9 +17,15 @@ spec:
           - resources:
               namespaces:
                 - kube-system
-                - kyverno
+                - flux-system
+                - cert-manager
+                - kyverno-system
+                - longhorn-system
+                - external-secrets
+                - networking
+                - monitoring
       validate:
-        message: "Limity za duże (cpu>4, mem>8Gi) albo brak limitów."
+        message: "Container limits are missing or too large (cpu > 4, memory > 8Gi)."
         foreach:
           - list: "request.object.spec.containers"
             deny:

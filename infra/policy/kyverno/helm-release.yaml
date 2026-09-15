@@ -16,18 +16,18 @@ spec:
       interval: 1h
   values:
     admissionController:
-      replicas: 3
+      replicas: 1
       metricsService:
         create: true
     backgroundController:
-      replicas: 3
+      replicas: 1
       metricsService:
         create: true
     cleanupController:
-      replicas: 3
+      replicas: 1
       metricsService:
         create: true
     reportsController:
-      replicas: 3
+      replicas: 1
       metricsService:
         create: true

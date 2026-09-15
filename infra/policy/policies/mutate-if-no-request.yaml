@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: default-resources-if-missing
 spec:
-  validationFailureAction: Audit
+  validationFailureAction: Enforce
   background: true
   rules:
     - name: add-default-resources
@@ -17,8 +17,12 @@ spec:
           - resources:
               namespaces:
                 - kube-system
+                - flux-system
+                - cert-manager
                 - kyverno-system
                 - longhorn-system
+                - external-secrets
+                - networking
                 - monitoring
       mutate:
         patchStrategicMerge:
