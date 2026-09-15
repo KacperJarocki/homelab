@@ -13,4 +13,3 @@ resources:
 - external-secrets.yaml
 - longhorn-system.yaml
 - traefik.yaml
-- cloudNativePg.yaml
