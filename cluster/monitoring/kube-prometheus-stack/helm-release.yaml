@@ -22,8 +22,15 @@ spec:
         namespace: monitoring
 
   values:
+    alertmanager:
+      enabled: false
+
+    defaultRules:
+      create: false
+
     grafana:
       enabled: true
+      defaultDashboardsEnabled: false
       dashboardProviders:
         dashboardproviders.yaml:
           apiVersion: 1
@@ -73,7 +80,7 @@ spec:
         size: 10Gi
 
       initChownData:
-        enabled: false
+        enabled: true
 
       serviceAccount:
         create: true
@@ -126,9 +133,9 @@ spec:
         linux:
           enabled: true
         aix:
-          enabled: true
+          enabled: false
         darwin:
-          enabled: true
+          enabled: false
       forceDeployDashboards: false
 
     prometheus-node-exporter:
@@ -161,8 +168,10 @@ spec:
     prometheus:
       enabled: true
       prometheusSpec:
-        retention: 7d
-        retentionSize: 8GB
+        retention: 3d
+        retentionSize: 4GB
+        scrapeInterval: 60s
+        evaluationInterval: 60s
 
         enableRemoteWriteReceiver: true
         enableOTLPReceiver: false

@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: require-requests-limits
 spec:
-  validationFailureAction: Audit
+  validationFailureAction: Enforce
   background: true
   rules:
     - name: require-resources
@@ -17,9 +17,15 @@ spec:
           - resources:
               namespaces:
                 - kube-system
-                - kyverno
+                - flux-system
+                - cert-manager
+                - kyverno-system
+                - longhorn-system
+                - external-secrets
+                - networking
+                - monitoring
       validate:
-        message: "Brak resources.requests/limits dla cpu i memory."
+        message: "Missing resources.requests/limits for cpu and memory."
         pattern:
           spec:
             containers:

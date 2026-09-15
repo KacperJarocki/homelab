@@ -8,10 +8,10 @@ spec:
   chart:
     spec:
       chart: cert-manager
-      version: 'v1.20.2' 
+      version: 'v1.20.2'
       sourceRef:
         kind: HelmRepository
-        name: cert-manager 
+        name: cert-manager
         namespace: cert-manager
   values:
     crds:
@@ -25,4 +25,4 @@ spec:
     #     enabled: true
     #     namespace: monitoring
     #     labels:
-    #       release: kube-prometheus-stack 
+    #       release: kube-prometheus-stack

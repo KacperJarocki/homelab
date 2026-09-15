@@ -5,7 +5,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name:  longhorn-system
+    - name: longhorn-system
   interval: 1m
   path: ./cluster
   prune: true

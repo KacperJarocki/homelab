@@ -14,11 +14,15 @@ spec:
         name: longhorn
         namespace: longhorn-system
   values:
+    defaultSettings:
+      defaultReplicaCount: 2
+    persistence:
+      defaultClassReplicaCount: 2
     ingress:
       enabled: true
       host: longhorn.homelab.kacperjarocki.dev
       tls: true
-      tlsSecret:  longhorn-tls
+      tlsSecret: longhorn-tls
     # metrics:
     #   serviceMonitor:
     #     enabled: true

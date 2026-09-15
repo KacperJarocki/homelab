@@ -6,7 +6,7 @@ metadata:
 spec:
   interval: 1m
   dependsOn:
-    - name:  certmanager-helm 
+    - name: certmanager-helm
   sourceRef:
     kind: GitRepository
     name: flux-system
