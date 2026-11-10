@@ -1,4 +1,4 @@
-# Tenant project for the pi-agents repo. Its own app-of-apps (argocd/root/apps/pi-agents.yaml)
+# Tenant project for the pi-agents repo. Its own app-of-apps (argocd/root/apps/pi-agents-root.yaml)
 # pulls k8s/argocd/ from https://github.com/KacperJarocki/pi-agents.
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject

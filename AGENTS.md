@@ -7,7 +7,7 @@
 
 ## Layout
 - `argocd/root/projects/`: AppProjects `infra`, `apps` and `pi-agents`. `sourceRepos` is an explicit allow-list; a new Helm repo must be added there or the Application is rejected.
-- `argocd/root/apps/pi-agents.yaml` is a nested app-of-apps that syncs `k8s/argocd/` from the separate `KacperJarocki/pi-agents` repo; its child Applications use project `pi-agents`, whose `destinations` list the namespaces that repo may touch (`argocd`, `iot-security`, `iot-security-dev`, `cnpg-system`, `strimzi-system`).
+- `argocd/root/apps/pi-agents-root.yaml` is a nested app-of-apps that syncs `k8s/argocd/` from the separate `KacperJarocki/pi-agents` repo; its child Applications use project `pi-agents`, whose `destinations` list the namespaces that repo may touch (`argocd`, `iot-security`, `iot-security-dev`, `cnpg-system`, `strimzi-system`).
 - `argocd/root/infra/*.yaml` and `argocd/root/apps/*.yaml`: one Application per component, named after its Helm release.
 - `infra/<component>/values.yaml` and `apps/<ns>/<app>/values.yaml`: Helm values, referenced from the Application as `$values/<path>`.
 - Extra plain manifests sit next to the values in `manifests/` (or `issuers/`, `config/`, `policies/`) and are the `path` of the Git source. A directory with a `kustomization.yaml` is rendered with kustomize, otherwise every YAML file is applied as-is.
@@ -20,7 +20,7 @@
 - With Argo CD installed: `argocd app diff <name>` shows live vs Git for one app; `kubectl -n argocd get applications` shows sync/health state for all.
 
 ## Ordering and Sync
-- Dependencies are expressed with `argocd.argoproj.io/sync-wave` on the Application files in `argocd/root/`, never by file order. Current waves: projects (-10) -> cert-manager, metallb, kyverno, external-secrets (0) -> issuers, metallb-config, kyverno-policies (1) -> traefik, longhorn, argocd (2) -> monitoring stack (3) -> pi-agents (4).
+- Dependencies are expressed with `argocd.argoproj.io/sync-wave` on the Application files in `argocd/root/`, never by file order. Current waves: projects (-10) -> cert-manager, metallb, kyverno, external-secrets (0) -> issuers, metallb-config, kyverno-policies (1) -> traefik, longhorn, argocd (2) -> monitoring stack (3) -> pi-agents-root (4).
 - The root app only advances to the next wave once every Application of the current wave is Healthy. A stuck child app blocks later waves from being created on a fresh cluster; already-created apps keep syncing independently.
 - Every Application has `ServerSideApply=true` (large CRDs), `CreateNamespace=true`, automated prune + selfHeal and a `resources-finalizer` (removing the file from Git deletes the resources). The root app intentionally has no finalizer.
 - Applications that apply custom resources of CRDs installed by another Application carry `SkipDryRunOnMissingResource=true`.
