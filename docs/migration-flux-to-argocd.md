@@ -21,7 +21,7 @@ managed by Argo CD:
 
 - Flux `GitRepository/pi-agents` + `Kustomization/pi-agents-streaming` came from the
   separate `KacperJarocki/pi-agents` repo. That repo now ships `k8s/argocd/` and is
-  picked up by `argocd/root/apps/pi-agents.yaml` (wave 4), so its operators and the
+  picked up by `argocd/root/apps/pi-agents-root.yaml` (wave 4), so its operators and the
   platform chart are adopted the same way as everything here. `gateway-agent`,
   previously applied by hand from `k8s/gateway`, becomes Argo-managed too.
 - `cilium` and `gateway-api-crd` Helm releases in `kube-system` (installed by hand).

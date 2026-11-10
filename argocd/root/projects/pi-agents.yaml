@@ -1,4 +1,4 @@
-# Tenant project for the pi-agents repo. Its own app-of-apps (argocd/root/apps/pi-agents.yaml)
+# Tenant project for the pi-agents repo. Its own app-of-apps (argocd/root/apps/pi-agents-root.yaml)
 # pulls k8s/argocd/ from https://github.com/KacperJarocki/pi-agents.
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
@@ -12,7 +12,8 @@ spec:
   sourceRepos:
     - https://github.com/KacperJarocki/pi-agents.git
     - https://cloudnative-pg.github.io/charts
-    - https://downloads.apache.org/flink/*
+    # The chart URL ends with a slash and `*` does not match `/`; list it exactly.
+    - https://downloads.apache.org/flink/flink-kubernetes-operator-1.16.1/
   destinations:
     - server: https://kubernetes.default.svc
       namespace: argocd          # the child Applications themselves

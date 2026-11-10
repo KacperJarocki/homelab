@@ -1,9 +1,11 @@
 # Nested app-of-apps: every Application under k8s/argocd/ in the pi-agents repo.
+# Named -root on purpose: the pi-agents ApplicationSet in that repo generates an
+# Application called `pi-agents` (prod), and two Applications cannot share a name.
 # Wave 4: the platform needs cert-manager (barman-cloud) and longhorn storage.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: pi-agents
+  name: pi-agents-root
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "4"
