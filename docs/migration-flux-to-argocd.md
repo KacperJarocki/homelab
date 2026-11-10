@@ -34,7 +34,7 @@ etc. stay in place.
 
 ```sh
 flux suspend kustomization --all
-flux suspend helmrelease --all -A
+flux suspend helmrelease --all --all-namespaces
 flux uninstall --namespace flux-system      # answers y; keeps workloads
 kubectl get ns flux-system                  # should be gone
 helm ls -A                                  # releases still listed: expected
