@@ -59,16 +59,15 @@ before creating the next wave.
 
 ## Secrets outside Git
 
-Credentials are never committed. Before the first sync of `minio`/`loki` on a
-fresh cluster run `scripts/create-minio-secrets.sh`; it creates:
+Credentials are never committed. Before the first sync of `rustfs`/`loki` on a
+fresh cluster run `scripts/create-object-storage-secrets.sh`; it creates:
 
-| namespace    | secret            | used by                                  |
-|--------------|-------------------|------------------------------------------|
-| `minio`      | `minio-root`      | MinIO root user (console login)          |
-| `minio`      | `minio-user-loki` | key of the `loki` user the chart creates |
-| `monitoring` | `loki-s3`         | same key, read by Loki at start-up       |
+| namespace    | secret               | used by                                              |
+|--------------|----------------------|------------------------------------------------------|
+| `rustfs`     | `rustfs-credentials` | RustFS root key (chart `secret.existingSecret`, bucket job, console login) |
+| `monitoring` | `loki-s3`            | same key under `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY`, read by Loki at start-up |
 
-The pi-agents repo has its own (`rustfs-credentials`, `iot-security-external-services`).
+The pi-agents repo has its own (`rustfs-credentials` in `iot-security`, `iot-security-external-services`).
 
 ## Other repositories
 

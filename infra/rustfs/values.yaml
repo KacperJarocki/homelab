@@ -1,0 +1,43 @@
+# In-cluster S3 for Loki (and anything else that needs object storage).
+# MinIO was the first choice, but MinIO Inc. withdrew its public images
+# (quay.io/minio/* -> 401), so this is RustFS, the same software pi-agents runs.
+# Root credentials live in the rustfs-credentials Secret (keys RUSTFS_ACCESS_KEY,
+# RUSTFS_SECRET_KEY) created by scripts/create-object-storage-secrets.sh.
+mode:
+  standalone:
+    enabled: true
+  distributed:
+    enabled: false
+
+secret:
+  existingSecret: rustfs-credentials
+
+storageclass:
+  name: longhorn
+  dataStorageSize: 50Gi
+  logStorageSize: 1Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# Web console only; the S3 API stays cluster-internal at
+# rustfs-svc.rustfs.svc.cluster.local:9000.
+ingress:
+  enabled: true
+  className: traefik
+  hosts:
+    - host: rustfs.homelab.kacperjarocki.dev
+      paths:
+        - path: /
+          pathType: Prefix
+          servicePort: console
+  tls:
+    enabled: true
+    existingSecret:
+      enabled: true
+      name: rustfs-console-tls   # infra/rustfs/manifests/certificate.yaml

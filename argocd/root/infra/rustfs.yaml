@@ -2,7 +2,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: minio
+  name: rustfs
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "3"
@@ -11,20 +11,20 @@ metadata:
 spec:
   project: infra
   sources:
-    - repoURL: https://charts.min.io/
-      chart: minio
-      targetRevision: 5.4.0
+    - repoURL: https://charts.rustfs.com
+      chart: rustfs
+      targetRevision: 1.0.4
       helm:
-        releaseName: minio
+        releaseName: rustfs
         valueFiles:
-          - $values/infra/minio/values.yaml
+          - $values/infra/rustfs/values.yaml
     - repoURL: https://github.com/kacperjarocki/homelab.git
       targetRevision: main
       ref: values
-      path: infra/minio/manifests
+      path: infra/rustfs/manifests
   destination:
     server: https://kubernetes.default.svc
-    namespace: minio
+    namespace: rustfs
   syncPolicy:
     automated:
       prune: true

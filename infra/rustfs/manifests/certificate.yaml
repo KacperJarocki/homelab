@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rustfs-console
+  namespace: rustfs
+spec:
+  secretName: rustfs-console-tls
+  issuerRef:
+    name: letsencrypt-http-prod
+    kind: ClusterIssuer
+  commonName: rustfs.homelab.kacperjarocki.dev
+  dnsNames:
+    - rustfs.homelab.kacperjarocki.dev
