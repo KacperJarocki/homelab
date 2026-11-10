@@ -57,6 +57,19 @@ before creating the next wave.
 | 3    | kube-prometheus-stack, loki, alloy                            | need longhorn storage                 |
 | 4    | pi-agents (nested app-of-apps from the pi-agents repo)        | needs cert-manager and longhorn       |
 
+## Secrets outside Git
+
+Credentials are never committed. Before the first sync of `minio`/`loki` on a
+fresh cluster run `scripts/create-minio-secrets.sh`; it creates:
+
+| namespace    | secret            | used by                                  |
+|--------------|-------------------|------------------------------------------|
+| `minio`      | `minio-root`      | MinIO root user (console login)          |
+| `minio`      | `minio-user-loki` | key of the `loki` user the chart creates |
+| `monitoring` | `loki-s3`         | same key, read by Loki at start-up       |
+
+The pi-agents repo has its own (`rustfs-credentials`, `iot-security-external-services`).
+
 ## Other repositories
 
 `argocd/root/apps/pi-agents.yaml` is a nested app-of-apps: it syncs `k8s/argocd/`
