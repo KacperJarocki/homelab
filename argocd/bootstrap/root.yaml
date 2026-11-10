@@ -1,0 +1,33 @@
+# Root "app of apps". Applied once by scripts/bootstrap-argocd.sh; afterwards
+# Argo CD keeps itself and everything under argocd/root/ in sync with Git.
+#
+# Deliberately has no resources-finalizer: deleting this Application must not
+# cascade-delete every child Application and the whole cluster with it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kacperjarocki/homelab.git
+    targetRevision: main
+    path: argocd/root
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: -1
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

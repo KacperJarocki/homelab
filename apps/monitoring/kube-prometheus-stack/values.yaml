@@ -1,0 +1,192 @@
+alertmanager:
+  enabled: false
+
+defaultRules:
+  create: false
+
+grafana:
+  enabled: true
+  defaultDashboardsEnabled: false
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'grafana-dashboards-kubernetes'
+          orgId: 1
+          folder: 'Kubernetes'
+          type: file
+          disableDeletion: true
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/grafana-dashboards-kubernetes
+  dashboards:
+    grafana-dashboards-kubernetes:
+      k8s-system-api-server:
+        url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-system-api-server.json
+        token: ''
+      k8s-system-coredns:
+        url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-system-coredns.json
+        token: ''
+      k8s-views-global:
+        url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-global.json
+        token: ''
+      k8s-views-namespaces:
+        url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-namespaces.json
+        token: ''
+      k8s-views-nodes:
+        url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-nodes.json
+        token: ''
+      k8s-views-pods:
+        url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-pods.json
+
+  ingress:
+    enabled: true
+    hosts:
+      - grafana.homelab.kacperjarocki.dev
+    path: /
+    pathType: Prefix
+    tls:
+      - hosts:
+          - grafana.homelab.kacperjarocki.dev
+        secretName: monitoring-homelab-kacperjarocki-dev-tls
+
+  persistence:
+    enabled: true
+    storageClassName: longhorn
+    size: 10Gi
+
+  initChownData:
+    enabled: true
+
+  serviceAccount:
+    create: true
+    autoMount: true
+
+  sidecar:
+    dashboards:
+      enabled: true
+
+kubelet:
+  enabled: true
+  namespace: kube-system
+  jobNameOverride: "k3s-server"
+  serviceMonitor:
+    enabled: false
+
+kubeControllerManager:
+  enabled: true
+  jobNameOverride: "k3s-server"
+  serviceMonitor:
+    enabled: false
+
+kubeEtcd:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+
+kubeScheduler:
+  enabled: true
+  jobNameOverride: "k3s-server"
+  serviceMonitor:
+    enabled: false
+
+kubeProxy:
+  enabled: true
+  jobNameOverride: "k3s-server"
+  serviceMonitor:
+    enabled: false
+
+kube-state-metrics:
+  enabled: true
+  releaseLabel: true
+  prometheusScrape: true
+  prometheus:
+    monitor:
+      enabled: false
+nodeExporter:
+  enabled: true
+  operatingSystems:
+    linux:
+      enabled: true
+    aix:
+      enabled: false
+    darwin:
+      enabled: false
+  forceDeployDashboards: false
+
+prometheus-node-exporter:
+  namespaceOverride: ""
+  podLabels:
+    jobLabel: node-exporter
+  releaseLabel: true
+  extraArgs:
+    - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+    - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+  prometheus:
+    monitor:
+      enabled: false
+  service:
+    portName: http-metrics
+    ipDualStack:
+      enabled: false
+      ipFamilies: ["IPv6", "IPv4"]
+      ipFamilyPolicy: "PreferDualStack"
+    labels:
+      jobLabel: node-exporter
+
+prometheusOperator:
+  enabled: true
+  prometheusConfigReloader:
+    image:
+      registry: quay.io
+      repository: prometheus-operator/prometheus-config-reloader
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    retention: 3d
+    retentionSize: 4GB
+    scrapeInterval: 60s
+    evaluationInterval: 60s
+
+    enableRemoteWriteReceiver: true
+    enableOTLPReceiver: false
+
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+    serviceMonitorSelector: {}
+    podMonitorSelector: {}
+    probeSelector: {}
+    ruleSelector: {}
+
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+
+  ingress:
+    enabled: true
+    ingressClassName: ""
+    extraLabels: {}
+    hosts:
+      - prometheus.homelab.kacperjarocki.dev
+    path: /
+    pathType: Prefix
+    tls:
+      - secretName: monitoring-homelab-kacperjarocki-dev-tls
+        hosts:
+          - prometheus.homelab.kacperjarocki.dev
+
+  additionalScrapeConfigs: []

@@ -1,0 +1,30 @@
+# Nested app-of-apps: every Application under k8s/argocd/ in the pi-agents repo.
+# Wave 4: the platform needs cert-manager (barman-cloud) and longhorn storage.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pi-agents
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: pi-agents
+  source:
+    repoURL: https://github.com/KacperJarocki/pi-agents.git
+    targetRevision: main
+    path: k8s/argocd
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

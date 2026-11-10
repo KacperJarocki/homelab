@@ -1,0 +1,22 @@
+# Workloads running on top of the platform (monitoring stack, future apps).
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: apps
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  description: Workloads managed from apps/
+  sourceRepos:
+    - https://github.com/kacperjarocki/homelab.git
+    - https://prometheus-community.github.io/helm-charts
+    - https://grafana.github.io/helm-charts
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"
+  # kube-prometheus-stack ships CRDs and ClusterRoles, so cluster-scoped
+  # resources must be allowed here as well.
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"

@@ -1,0 +1,28 @@
+# Tenant project for the pi-agents repo. Its own app-of-apps (argocd/root/apps/pi-agents.yaml)
+# pulls k8s/argocd/ from https://github.com/KacperJarocki/pi-agents.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: pi-agents
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  description: IoT threat-detection platform from the pi-agents repository
+  sourceRepos:
+    - https://github.com/KacperJarocki/pi-agents.git
+    - https://cloudnative-pg.github.io/charts
+    - https://downloads.apache.org/flink/*
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: argocd          # the child Applications themselves
+    - server: https://kubernetes.default.svc
+      namespace: iot-security
+    - server: https://kubernetes.default.svc
+      namespace: cnpg-system
+    - server: https://kubernetes.default.svc
+      namespace: strimzi-system
+  # Operators ship CRDs and ClusterRoles.
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"

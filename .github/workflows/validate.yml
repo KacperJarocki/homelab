@@ -1,0 +1,25 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install yq
+        run: |
+          command -v yq >/dev/null 2>&1 && exit 0
+          sudo curl -sSL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Render every Argo CD Application
+        run: scripts/validate-local.sh
