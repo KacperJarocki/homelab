@@ -19,6 +19,8 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: iot-security
     - server: https://kubernetes.default.svc
+      namespace: iot-security-dev
+    - server: https://kubernetes.default.svc
       namespace: cnpg-system
     - server: https://kubernetes.default.svc
       namespace: strimzi-system
