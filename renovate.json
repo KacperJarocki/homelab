@@ -3,9 +3,9 @@
   "extends": [
     "config:recommended"
   ],
-  "flux": {
+  "argocd": {
     "managerFilePatterns": [
-      "/\\.yaml$/"
+      "/^argocd/root/.+\\.yaml$/"
     ]
   }
 }

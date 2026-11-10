@@ -1,0 +1,54 @@
+# Values for the argo-cd Helm chart (https://github.com/argoproj/argo-helm).
+# Used twice: by scripts/bootstrap-argocd.sh for the initial install and by the
+# self-managing `argocd` Application (argocd/root/infra/argocd.yaml) afterwards.
+global:
+  domain: argocd.homelab.kacperjarocki.dev
+
+# No SSO on the homelab; dex only costs memory on the Pi.
+dex:
+  enabled: false
+
+configs:
+  params:
+    # TLS is terminated by Traefik, Argo CD serves plain HTTP behind it.
+    server.insecure: true
+  cm:
+    # Track ownership with an annotation instead of the app.kubernetes.io/instance
+    # label. Avoids clashing with the labels Helm charts set themselves and makes
+    # adopting the resources Flux left behind painless.
+    application.resourceTrackingMethod: annotation
+
+    # Argo CD stopped assessing the health of its own Application CRD in 1.8.
+    # The app-of-apps root relies on sync waves, which only work when a child
+    # Application reports Healthy, so the check is restored here.
+    resource.customizations.health.argoproj.io_Application: |
+      hs = {}
+      hs.status = "Progressing"
+      hs.message = ""
+      if obj.status ~= nil then
+        if obj.status.health ~= nil then
+          hs.status = obj.status.health.status
+          if obj.status.health.message ~= nil then
+            hs.message = obj.status.health.message
+          end
+        end
+      end
+      return hs
+
+    # Webhook CA bundles are injected at runtime (cert-manager, kube-prometheus-stack
+    # admission jobs); without this they show as permanently OutOfSync.
+    resource.customizations.ignoreDifferences.admissionregistration.k8s.io_MutatingWebhookConfiguration: |
+      jqPathExpressions:
+        - '.webhooks[]?.clientConfig.caBundle'
+    resource.customizations.ignoreDifferences.admissionregistration.k8s.io_ValidatingWebhookConfiguration: |
+      jqPathExpressions:
+        - '.webhooks[]?.clientConfig.caBundle'
+
+server:
+  ingress:
+    enabled: true
+    # Certificate lives in infra/argocd/manifests/certificate.yaml
+    extraTls:
+      - hosts:
+          - argocd.homelab.kacperjarocki.dev
+        secretName: argocd-tls

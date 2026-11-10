@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  secretName: argocd-tls
+  issuerRef:
+    name: letsencrypt-http-prod
+    kind: ClusterIssuer
+  commonName: argocd.homelab.kacperjarocki.dev
+  dnsNames:
+    - argocd.homelab.kacperjarocki.dev

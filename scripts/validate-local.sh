@@ -1,43 +1,80 @@
 #!/usr/bin/env sh
+# Renders every Argo CD Application under argocd/root the way Argo CD would:
+#   - Helm sources: helm template with the referenced $values files
+#   - Git sources: kustomize build, or a YAML parse for plain-manifest directories
+# Needs: helm, kubectl, yq (mikefarah). Network access is required for charts.
 set -eu
 
-run_checks() {
-  kubectl kustomize cluster > /dev/null
-  kubectl kustomize flux/flux-system > /dev/null
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+cd "$ROOT"
 
-  flux build kustomization cluster \
-    --path ./cluster \
-    --kustomization-file ./flux/flux-system/cluster-kustomization.yaml \
-    --dry-run > /dev/null
+for tool in helm kubectl yq; do
+  command -v "$tool" >/dev/null 2>&1 || { echo "missing tool: $tool" >&2; exit 1; }
+done
 
-  flux build kustomization longhorn-system \
-    --path ./infra/longhorn-system \
-    --kustomization-file ./flux/flux-system/longhorn-system.yaml \
-    --dry-run > /dev/null
+status=0
+fail() { echo "FAIL $1" >&2; status=1; }
 
-  flux build kustomization kyverno \
-    --path ./infra/policy/kyverno \
-    --kustomization-file ./flux/flux-system/kyverno.yaml \
-    --dry-run > /dev/null
-
-  flux build kustomization policies \
-    --path ./infra/policy/policies \
-    --kustomization-file ./flux/flux-system/policy.yaml \
-    --dry-run > /dev/null
-
-  flux build kustomization certmanager-issuer \
-    --path ./infra/certmanager/certIssuers \
-    --kustomization-file ./flux/flux-system/certmanager-issuer.yaml \
-    --dry-run > /dev/null
+render_helm() { # app ns index
+  app=$1; ns=$2; i=$3
+  repo=$(yq ".$i.repoURL" "$app")
+  chart=$(yq ".$i.chart" "$app")
+  version=$(yq ".$i.targetRevision" "$app")
+  release=$(yq ".$i.helm.releaseName // .metadata.name" "$app")
+  set --
+  for vf in $(yq ".$i.helm.valueFiles[]? | sub(\"^\\\$values/\", \"\")" "$app"); do
+    [ -f "$vf" ] || { fail "$app: values file $vf not found"; return; }
+    set -- "$@" --values "$vf"
+  done
+  if helm template "$release" "$chart" --repo "$repo" --version "$version" \
+       --namespace "$ns" --include-crds "$@" >/dev/null 2>"$tmp"; then
+    echo "ok   helm      $chart@$version ($app)"
+  else
+    fail "$app: helm template $chart@$version"; cat "$tmp" >&2
+  fi
 }
 
-if [ "${1:-}" = "--loop" ]; then
-  while ! run_checks; do
-    printf 'local validation failed, retrying in 2s...\n' >&2
-    sleep 2
+render_git() { # app index
+  app=$1; i=$2
+  dir=$(yq ".$i.path" "$app")
+  [ -d "$dir" ] || { fail "$app: path $dir not found"; return; }
+  if [ -f "$dir/kustomization.yaml" ]; then
+    kubectl kustomize "$dir" >/dev/null 2>"$tmp" && echo "ok   kustomize $dir ($app)" || { fail "$app: kustomize $dir"; cat "$tmp" >&2; }
+  else
+    for f in $(find "$dir" -name '*.yaml' | sort); do
+      yq -e '.kind' "$f" >/dev/null 2>"$tmp" || { fail "$f: invalid manifest"; cat "$tmp" >&2; }
+    done
+    echo "ok   manifests $dir ($app)"
+  fi
+}
+
+tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT
+
+for app in $(find argocd/root argocd/bootstrap -name '*.yaml' | sort); do
+  yq -e '.apiVersion == "argoproj.io/v1alpha1"' "$app" >/dev/null 2>"$tmp" || { fail "$app: not an Argo CD manifest"; cat "$tmp" >&2; continue; }
+  [ "$(yq '.kind' "$app")" = "Application" ] || continue
+  ns=$(yq '.spec.destination.namespace' "$app")
+  if [ "$(yq '.spec.source // ""' "$app")" != "" ]; then
+    srcs=spec.source
+  else
+    n=$(yq '.spec.sources | length' "$app"); srcs=""; i=0
+    while [ "$i" -lt "$n" ]; do srcs="$srcs spec.sources.$i"; i=$((i+1)); done
+  fi
+  for src in $srcs; do
+    if [ "$(yq ".$src.chart // \"\"" "$app")" != "" ]; then
+      render_helm "$app" "$ns" "$src"
+    elif [ "$(yq ".$src.path // \"\"" "$app")" != "" ]; then
+      render_git "$app" "$src"
+    fi
   done
-else
-  run_checks
+done
+
+# Schema validation of the Application/AppProject objects themselves, when a
+# cluster with the Argo CD CRDs is reachable.
+if kubectl get crd applications.argoproj.io >/dev/null 2>&1; then
+  kubectl apply --dry-run=server -R -f argocd/root -f argocd/bootstrap >/dev/null 2>"$tmp" \
+    && echo "ok   server dry-run argocd/" || { fail "server dry-run argocd/"; cat "$tmp" >&2; }
 fi
 
-printf 'local validation passed\n'
+[ "$status" -eq 0 ] && echo "local validation passed" || echo "local validation FAILED" >&2
+exit "$status"

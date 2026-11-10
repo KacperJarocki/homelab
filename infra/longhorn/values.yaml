@@ -1,0 +1,15 @@
+defaultSettings:
+  defaultReplicaCount: 2
+persistence:
+  defaultClassReplicaCount: 2
+ingress:
+  enabled: true
+  host: longhorn.homelab.kacperjarocki.dev
+  tls: true
+  tlsSecret: longhorn-tls
+# metrics:
+#   serviceMonitor:
+#     enabled: true
+#     namespace: monitoring
+#     labels:
+#       release: kube-prometheus-stack

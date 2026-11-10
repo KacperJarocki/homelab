@@ -1,0 +1,11 @@
+deployment:
+  kind: DaemonSet
+
+ingressRoute:
+  dashboard:
+    enabled: true
+    entryPoints:
+      - websecure
+    matchRule: Host(`traefik.homelab.kacperjarocki.dev`)
+    tls:
+      secretName: traefik-tls

@@ -1,0 +1,25 @@
+# Platform components: networking, storage, certificates, policy, Argo CD itself.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: infra
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  description: Cluster platform components managed from infra/
+  sourceRepos:
+    - https://github.com/kacperjarocki/homelab.git
+    - https://argoproj.github.io/argo-helm
+    - https://charts.jetstack.io
+    - https://metallb.github.io/metallb
+    - https://traefik.github.io/charts
+    - https://charts.longhorn.io
+    - https://kyverno.github.io/kyverno
+    - https://charts.external-secrets.io
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
