@@ -4,7 +4,7 @@ metadata:
   name: loki
   namespace: argocd
   annotations:
-    # Wave 4: chunks and index go to minio (wave 3).
+    # Wave 4: chunks and index go to rustfs (wave 3).
     argocd.argoproj.io/sync-wave: "4"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
