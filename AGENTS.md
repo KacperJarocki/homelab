@@ -7,7 +7,7 @@
 
 ## Layout
 - `argocd/root/projects/`: AppProjects `infra`, `apps` and `pi-agents`. `sourceRepos` is an explicit allow-list; a new Helm repo must be added there or the Application is rejected.
-- `argocd/root/apps/pi-agents.yaml` is a nested app-of-apps that syncs `k8s/argocd/` from the separate `KacperJarocki/pi-agents` repo; its child Applications use project `pi-agents`, whose `destinations` list the namespaces that repo may touch (`argocd`, `iot-security`, `cnpg-system`, `strimzi-system`).
+- `argocd/root/apps/pi-agents.yaml` is a nested app-of-apps that syncs `k8s/argocd/` from the separate `KacperJarocki/pi-agents` repo; its child Applications use project `pi-agents`, whose `destinations` list the namespaces that repo may touch (`argocd`, `iot-security`, `iot-security-dev`, `cnpg-system`, `strimzi-system`).
 - `argocd/root/infra/*.yaml` and `argocd/root/apps/*.yaml`: one Application per component, named after its Helm release.
 - `infra/<component>/values.yaml` and `apps/<ns>/<app>/values.yaml`: Helm values, referenced from the Application as `$values/<path>`.
 - Extra plain manifests sit next to the values in `manifests/` (or `issuers/`, `config/`, `policies/`) and are the `path` of the Git source. A directory with a `kustomization.yaml` is rendered with kustomize, otherwise every YAML file is applied as-is.
