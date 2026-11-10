@@ -4,9 +4,12 @@ loki:
     replication_factor: 1
   schemaConfig:
     configs:
+      # Chunks and the TSDB index live on the singleBinary PVC (Longhorn).
+      # The previous period used an external S3 (rustfs.kacperjarocki.dev)
+      # that stopped answering; its chunks are not readable any more.
       - from: "2024-04-01"
         store: tsdb
-        object_store: s3
+        object_store: filesystem
         schema: v13
         index:
           prefix: loki_index_
@@ -20,24 +23,19 @@ loki:
   ruler:
     enable_api: true
   storage:
-    type: s3
-    bucketNames:
-      chunks: loki
-      ruler: loki
-      admin: loki
-    s3:
-      endpoint: https://rustfs.kacperjarocki.dev
-      region: poland
-      s3ForcePathStyle: true
-      accessKeyId: loki
-      secretAccessKey: ldwGaLxJymHkU3sBfV1T6q0C5XEhKoYrp82tuZWO
+    type: filesystem
+  compactor:
+    retention_enabled: true
+    delete_request_store: filesystem
 
 deploymentMode: SingleBinary
 
 singleBinary:
   replicas: 1
   persistence:
+    enabled: true
     size: 10Gi
+    storageClass: longhorn
 backend:
   replicas: 0
 read:
