@@ -14,7 +14,7 @@ here; Argo CD keeps the cluster in sync with `main`.
 argocd/
   bootstrap/root.yaml   root "app of apps", applied once by scripts/bootstrap-argocd.sh
   root/                 everything the root Application syncs (recursively)
-    projects/           AppProjects: infra, apps
+    projects/           AppProjects: infra, apps, pi-agents
     infra/              one Application per platform component
     apps/               one Application per workload
 infra/<component>/      values.yaml (+ manifests/ or other plain-manifest dirs)
@@ -55,6 +55,14 @@ before creating the next wave.
 | 1    | cert-manager-issuers, metallb-config, kyverno-policies        | custom resources of the wave-0 CRDs   |
 | 2    | traefik, longhorn, argocd                                     | need a ClusterIssuer and an IP pool   |
 | 3    | kube-prometheus-stack, loki, alloy                            | need longhorn storage                 |
+| 4    | pi-agents (nested app-of-apps from the pi-agents repo)        | needs cert-manager and longhorn       |
+
+## Other repositories
+
+`argocd/root/apps/pi-agents.yaml` is a nested app-of-apps: it syncs `k8s/argocd/`
+from [pi-agents](https://github.com/KacperJarocki/pi-agents), which defines its own
+Applications (operators + the platform chart) in the `pi-agents` AppProject. That
+project is defined here and pins which repos and namespaces the tenant may use.
 
 ## Day-to-day
 

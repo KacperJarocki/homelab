@@ -19,11 +19,11 @@ helm ls -A                         # note current chart versions
 Known state on the cluster that is *not* in this repo and therefore will not be
 managed by Argo CD:
 
-- Flux `GitRepository/pi-agents` + `Kustomization/pi-agents-streaming`, pointing at
-  `KacperJarocki/pi-agents` (`k8s/flux`): cnpg-operator, barman-cloud, flink-operator,
-  strimzi-operator, pi-agents in `cnpg-system`, `iot-security`, `strimzi-system`.
-  Their workloads stay running after step 1 but stop being reconciled. That repo
-  needs its own Argo CD Application(s) once its manifests are no longer Flux CRs.
+- Flux `GitRepository/pi-agents` + `Kustomization/pi-agents-streaming` came from the
+  separate `KacperJarocki/pi-agents` repo. That repo now ships `k8s/argocd/` and is
+  picked up by `argocd/root/apps/pi-agents.yaml` (wave 4), so its operators and the
+  platform chart are adopted the same way as everything here. `gateway-agent`,
+  previously applied by hand from `k8s/gateway`, becomes Argo-managed too.
 - `cilium` and `gateway-api-crd` Helm releases in `kube-system` (installed by hand).
 
 ## 1. Stop Flux (nothing gets deleted)

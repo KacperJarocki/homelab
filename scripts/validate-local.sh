@@ -36,6 +36,11 @@ render_helm() { # app ns index
 
 render_git() { # app index
   app=$1; i=$2
+  repo=$(yq ".$i.repoURL" "$app")
+  case "$repo" in
+    *github.com/kacperjarocki/homelab*) ;;
+    *) echo "skip external  $repo ($app)"; return ;;
+  esac
   dir=$(yq ".$i.path" "$app")
   [ -d "$dir" ] || { fail "$app: path $dir not found"; return; }
   if [ -f "$dir/kustomization.yaml" ]; then
