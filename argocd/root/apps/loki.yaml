@@ -4,10 +4,8 @@ metadata:
   name: loki
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "3"
-    # Loki's S3 endpoint (rustfs.kacperjarocki.dev) is unreachable, so the app
-    # never reports Healthy. Do not let it hold back later waves of the root app.
-    argocd.argoproj.io/sync-options: SkipHealthCheck=true
+    # Wave 4: chunks and index go to minio (wave 3).
+    argocd.argoproj.io/sync-wave: "4"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:

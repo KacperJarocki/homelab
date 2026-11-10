@@ -17,6 +17,7 @@ spec:
     - https://charts.longhorn.io
     - https://kyverno.github.io/kyverno
     - https://charts.external-secrets.io
+    - https://charts.min.io/
   destinations:
     - server: https://kubernetes.default.svc
       namespace: "*"

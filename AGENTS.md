@@ -37,3 +37,4 @@
 - Some manifests contain secret references, and at least one values file contains plaintext credentials; avoid pasting full rendered YAML into responses unless necessary.
 - Certificates and ingresses use the `homelab.kacperjarocki.dev` / `kacperjarocki.dev` DNS zone and cert-manager ClusterIssuers defined under `infra/cert-manager/issuers/`.
 - Loki values set `test.enabled: false`; chart >= 7.5.0 refuses to render otherwise when the canary is disabled.
+- Loki stores chunks in the in-cluster MinIO (`infra/minio`); its S3 credentials are `${S3_ACCESS_KEY_ID}`/`${S3_SECRET_ACCESS_KEY}` expanded from the `loki-s3` Secret (`-config.expand-env=true`). MinIO's own credentials are the `minio-root` and `minio-user-loki` Secrets. All three are created by `scripts/create-minio-secrets.sh`, never committed.
