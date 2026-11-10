@@ -34,7 +34,9 @@ etc. stay in place.
 
 ```sh
 flux suspend kustomization --all
-flux suspend helmrelease --all --all-namespaces
+for hr in $(kubectl get helmrelease -A -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}'); do
+  kubectl patch helmrelease -n "${hr%/*}" "${hr#*/}" --type merge -p '{"spec":{"suspend":true}}'
+done
 flux uninstall --namespace flux-system      # answers y; keeps workloads
 kubectl get ns flux-system                  # should be gone
 helm ls -A                                  # releases still listed: expected
