@@ -55,6 +55,12 @@ grafana:
     storageClassName: longhorn
     size: 10Gi
 
+  # The data volume is ReadWriteOnce: a rolling update starts the new pod on
+  # another node while the old one still holds the volume, and it waits in
+  # Init forever (Multi-Attach). Stop the old pod first.
+  deploymentStrategy:
+    type: Recreate
+
   initChownData:
     enabled: true
 
