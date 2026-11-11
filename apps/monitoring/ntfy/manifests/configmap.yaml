@@ -1,0 +1,27 @@
+# ntfy server config. Users and tokens are not here: they come from the
+# ntfy-auth Secret (NTFY_AUTH_USERS / NTFY_AUTH_TOKENS), created by
+# scripts/create-alerting-secrets.sh and never committed.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ntfy
+  namespace: monitoring
+data:
+  server.yml: |
+    base-url: "https://ntfy.homelab.kacperjarocki.dev"
+    listen-http: ":8080"
+    behind-proxy: true
+    cache-file: "/var/lib/ntfy/cache.db"
+    cache-duration: "72h"
+    auth-file: "/var/lib/ntfy/user.db"
+    # Nobody, including anonymous clients, may read or publish unless listed.
+    auth-default-access: "deny-all"
+    auth-access:
+      - "alertmanager:homelab-alerts:wo"
+      - "phone:homelab-alerts:ro"
+    enable-signup: false
+    enable-login: true
+    # iOS gets instant pushes only through APNs: ntfy.sh receives a poll
+    # request with the message ID, never the message; the app then fetches it
+    # from this server (over the home VPN).
+    upstream-base-url: "https://ntfy.sh"

@@ -1,5 +1,45 @@
+# Alerts (rules in manifests/alert-rules.yaml) go to the self-hosted ntfy in
+# this namespace. The publish token is in the alertmanager-ntfy Secret
+# (scripts/create-alerting-secrets.sh), mounted under /etc/alertmanager/secrets.
 alertmanager:
-  enabled: false
+  enabled: true
+  alertmanagerSpec:
+    secrets:
+      - alertmanager-ntfy
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: ntfy
+      group_by: ["alertname", "namespace"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      # Replaces the chart's default sub-route to a "null" receiver for the
+      # Watchdog alert (default rules are off, and "null" is not defined here).
+      routes: []
+    receivers:
+      - name: ntfy
+        webhook_configs:
+          # ntfy formats Alertmanager payloads itself (template=alertmanager).
+          - url: "http://ntfy.monitoring.svc.cluster.local/homelab-alerts?template=alertmanager"
+            send_resolved: true
+            http_config:
+              authorization:
+                type: Bearer
+                credentials_file: /etc/alertmanager/secrets/alertmanager-ntfy/token
+    inhibit_rules:
+      # A node that is down explains everything else failing on it.
+      - source_matchers: ['alertname = "NodeNotReady"']
+        target_matchers: ['severity = "warning"']
+        equal: ["node"]
 
 defaultRules:
   create: false

@@ -11,3 +11,4 @@ spec:
   dnsNames:
     - grafana.homelab.kacperjarocki.dev
     - prometheus.homelab.kacperjarocki.dev
+    - ntfy.homelab.kacperjarocki.dev
