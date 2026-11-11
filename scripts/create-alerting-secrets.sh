@@ -11,12 +11,15 @@
 set -euo pipefail
 
 ns=monitoring
-rand() { LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c "$1"; }
+# Random strings without `... | head` pipelines: under pipefail the writer's
+# SIGPIPE would abort the script.
+password() { local p; p="$(openssl rand -base64 36)"; p="${p//[\/+=]/}"; printf '%s' "${p:0:24}"; }
 
-phone_password="$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)"
-alertmanager_password="$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)"
-# ntfy access tokens: "tk_" + 29 characters.
-alertmanager_token="tk_$(rand 29)"
+phone_password="$(password)"
+alertmanager_password="$(password)"
+# ntfy access tokens: "tk_" + 29 characters ([0-9a-f]).
+hex="$(openssl rand -hex 16)"
+alertmanager_token="tk_${hex:0:29}"
 
 hash() { htpasswd -nbBC 10 x "$1" | cut -d: -f2- | tr -d '\n' | sed 's/^\$2y\$/$2a$/'; }
 
