@@ -46,6 +46,15 @@ defaultRules:
 
 grafana:
   enabled: true
+  # Admin login from a Secret outside Helm (scripts/create-grafana-admin-secret.sh).
+  # Without it the chart generates a random password and keeps it with a Helm
+  # `lookup`, which Argo CD does not run: every sync wrote a new password to
+  # the Secret while Grafana's database kept the first one, so neither the
+  # Secret's password nor the dashboard sidecar could log in.
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
   defaultDashboardsEnabled: false
   dashboardProviders:
     dashboardproviders.yaml:
