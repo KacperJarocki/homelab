@@ -41,6 +41,9 @@ alertmanager:
           matchers: ['topic = "network"']
         - receiver: ntfy-monitoring
           matchers: ['topic = "monitoring"']
+        # IoT threat detections (pi-agents PortScanActive etc.).
+        - receiver: ntfy-security
+          matchers: ['topic = "security"']
     # ntfy formats the payload with its own template (homelab.yml in
     # apps/monitoring/ntfy/manifests/configmap.yaml); tapping the notification
     # opens the Homelab / Alerts dashboard. The phone user may read
@@ -82,6 +85,12 @@ alertmanager:
       - name: ntfy-monitoring
         webhook_configs:
           - url: "http://ntfy.monitoring.svc.cluster.local/homelab-monitoring?template=homelab&click=https%3A%2F%2Fgrafana.homelab.kacperjarocki.dev%2Fd%2Fhomelab-alerts"
+            send_resolved: true
+            http_config: *ntfy-auth
+      # IoT threat alerts from pi-agents; tapping opens the live incidents page.
+      - name: ntfy-security
+        webhook_configs:
+          - url: "http://ntfy.monitoring.svc.cluster.local/homelab-security?template=homelab&click=https%3A%2F%2Fiot-dashboard.homelab.kacperjarocki.dev%2Flive%2F"
             send_resolved: true
             http_config: *ntfy-auth
     inhibit_rules:
