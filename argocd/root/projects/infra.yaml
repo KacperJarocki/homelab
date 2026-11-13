@@ -18,6 +18,7 @@ spec:
     - https://kyverno.github.io/kyverno
     - https://charts.external-secrets.io
     - https://charts.rustfs.com
+    - https://kubereboot.github.io/charts
   destinations:
     - server: https://kubernetes.default.svc
       namespace: "*"
