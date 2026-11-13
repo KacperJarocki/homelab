@@ -26,8 +26,13 @@ render_helm() { # app ns index
     [ -f "$vf" ] || { fail "$app: values file $vf not found"; return; }
     set -- "$@" --values "$vf"
   done
-  if helm template "$release" "$chart" --repo "$repo" --version "$version" \
-       --namespace "$ns" --include-crds "$@" >/dev/null 2>"$tmp"; then
+  # A repoURL without a scheme is an OCI registry (Argo CD convention).
+  case "$repo" in
+    *://*) set -- "$chart" --repo "$repo" "$@" ;;
+    *)     set -- "oci://$repo/$chart" "$@" ;;
+  esac
+  if helm template "$release" "$@" --version "$version" \
+       --namespace "$ns" --include-crds >/dev/null 2>"$tmp"; then
     echo "ok   helm      $chart@$version ($app)"
   else
     fail "$app: helm template $chart@$version"; cat "$tmp" >&2

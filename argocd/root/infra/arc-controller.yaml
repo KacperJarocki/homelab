@@ -1,0 +1,43 @@
+# Wave 2: actions-runner-controller (CRDs + controller). The runner scale set
+# (arc-runners, wave 3) creates custom resources of these CRDs.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: arc
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infra
+  sources:
+    # Public OCI chart: no oci:// prefix and no repository Secret needed.
+    - repoURL: ghcr.io/actions/actions-runner-controller-charts
+      chart: gha-runner-scale-set-controller
+      targetRevision: 0.15.1
+      helm:
+        # The release name fixes the controller ServiceAccount name
+        # (arc-gha-rs-controller) that infra/arc-runners/values.yaml points at.
+        releaseName: arc
+        valueFiles:
+          - $values/infra/arc-controller/values.yaml
+    - repoURL: https://github.com/kacperjarocki/homelab.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: arc-systems
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

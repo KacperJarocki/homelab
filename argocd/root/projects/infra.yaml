@@ -19,6 +19,7 @@ spec:
     - https://charts.external-secrets.io
     - https://charts.rustfs.com
     - https://kubereboot.github.io/charts
+    - ghcr.io/actions/actions-runner-controller-charts
   destinations:
     - server: https://kubernetes.default.svc
       namespace: "*"

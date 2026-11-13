@@ -19,7 +19,8 @@ argocd/
     apps/               one Application per workload
 infra/<component>/      values.yaml (+ manifests/ or other plain-manifest dirs)
 apps/<ns>/<app>/        values.yaml (+ manifests/, config/)
-scripts/                bootstrap + local validation
+network/opnsense/       OpenTofu for the OPNsense firewall (applied by CI on the in-cluster runner)
+scripts/                bootstrap, secrets, local validation
 docs/                   runbooks
 ```
 
