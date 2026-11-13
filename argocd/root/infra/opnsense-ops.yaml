@@ -2,7 +2,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: opnsense-backup
+  name: opnsense-ops
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "4"
@@ -13,7 +13,7 @@ spec:
   source:
     repoURL: https://github.com/kacperjarocki/homelab.git
     targetRevision: main
-    path: infra/opnsense-backup
+    path: infra/opnsense-ops
   destination:
     server: https://kubernetes.default.svc
     namespace: opnsense

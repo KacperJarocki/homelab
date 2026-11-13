@@ -126,7 +126,8 @@ spec:
             summary: "{{ $value }} replica(s) not ready in {{ $labels.namespace }} for 15+ min"
             description: "Check its pods and volumes."
         - alert: JobFailed
-          expr: kube_job_status_failed > 0
+          # The OPNsense drift check has its own alert (OPNsenseInterfaceDrift).
+          expr: kube_job_status_failed{job_name!~"opnsense-interface-drift-.*"} > 0
           for: 5m
           labels:
             severity: warning
@@ -376,6 +377,31 @@ spec:
             description: "Longhorn cannot provision it (not enough nodes/space for the replicas?) or the StorageClass is wrong."
     - name: network
       rules:
+        # OPNsense interface assignments/addresses cannot be managed from Git
+        # (no write API), so infra/opnsense-ops checks them hourly against
+        # interfaces-expected.json. Fires while the latest run did not
+        # succeed; resolves with the next clean run.
+        - alert: OPNsenseInterfaceDrift
+          expr: |
+            (
+              kube_cronjob_status_last_schedule_time{namespace="opnsense", cronjob="opnsense-interface-drift"}
+              - kube_cronjob_status_last_successful_time{namespace="opnsense", cronjob="opnsense-interface-drift"}
+            ) > 600
+            or
+            # scheduled at least once but never succeeded
+            (
+              kube_cronjob_status_last_schedule_time{namespace="opnsense", cronjob="opnsense-interface-drift"}
+              unless on (namespace, cronjob)
+              kube_cronjob_status_last_successful_time{namespace="opnsense", cronjob="opnsense-interface-drift"}
+            )
+          for: 5m
+          labels:
+            severity: warning
+            topic: network
+          annotations:
+            title: "OPNsense interfaces differ from Git"
+            summary: "Assignments, addresses or bridge members changed on opnsense-1"
+            description: "kubectl -n opnsense logs job/<latest opnsense-interface-drift job> lists the differences (or why the check could not run). Intended? Update infra/opnsense-ops/interfaces-expected.json."
         # Let's Encrypt certificates renew 30 days before expiry; under 14
         # days left means renewal has been failing for two weeks.
         - alert: CertificateExpiringSoon

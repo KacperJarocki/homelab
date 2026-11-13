@@ -4,8 +4,8 @@
 #   arc-runners/arc-github-app   GitHub App credentials for ARC
 #   arc-runners/opnsense-tofu    OPNsense API key, RustFS S3 credentials and
 #                                the OpenTofu state passphrase (runner env)
-#   opnsense/opnsense-backup     API key + RustFS credentials for the daily
-#                                config.xml backup CronJob
+#   opnsense/opnsense-api        API key + RustFS credentials for the jobs in
+#                                infra/opnsense-ops (daily backup, drift check)
 #
 # Input (environment):
 #   GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID, GITHUB_APP_PRIVATE_KEY_FILE
@@ -56,10 +56,10 @@ kubectl -n "$NS" create secret generic opnsense-tofu \
   --from-literal=TF_VAR_state_passphrase="$passphrase" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-# Daily config.xml backup CronJob (infra/opnsense-backup): same API user,
-# same RustFS credentials, no state passphrase.
+# Jobs in infra/opnsense-ops (daily config.xml backup, interface drift check):
+# same API user, same RustFS credentials, no state passphrase.
 kubectl get namespace "$BACKUP_NS" >/dev/null 2>&1 || kubectl create namespace "$BACKUP_NS"
-kubectl -n "$BACKUP_NS" create secret generic opnsense-backup \
+kubectl -n "$BACKUP_NS" create secret generic opnsense-api \
   --from-literal=OPNSENSE_URI="${OPNSENSE_URI:-https://10.20.0.1}" \
   --from-literal=OPNSENSE_ALLOW_INSECURE="${OPNSENSE_ALLOW_INSECURE:-true}" \
   --from-literal=OPNSENSE_API_KEY="$OPNSENSE_API_KEY" \

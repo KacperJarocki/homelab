@@ -41,6 +41,8 @@ and the runner sits in the LAN next to the firewall API.
    | Firewall: Rules [new] | `api/firewall/filter/*` (rules, savepoint, apply) |
    | Services: Unbound | `api/unbound/*` (overrides, settings, service reconfigure) |
    | Diagnostics: Configuration History | `api/core/backup/*` (pre-apply and daily backups) |
+   | Status: Interfaces | `api/interfaces/overview/*` (read, drift check) |
+   | Interfaces: Bridge | `api/interfaces/bridge_settings/*` (drift check reads bridge members) |
 
    Then System > Access > Users > `tofu`: member of `iac` **only** (not
    `readonly`: `user-config-readonly` makes every write fail, and not
@@ -87,6 +89,15 @@ cd network/opnsense && tofu init && tofu plan
 If the cluster is gone completely, OPNsense keeps its own configuration history
 (System > Configuration > History) and every apply leaves a copy of the
 previous `config.xml` under `s3://tofu-state/backups/`.
+
+## Interfaces: checked, not managed
+
+Interface assignments and addresses are legacy pages without a write API in
+OPNsense 26.1 (`interfaces_assign.php`, `interfaces.php`), and the provider
+has no bridge resource. `infra/opnsense-ops` checks them hourly against
+`infra/opnsense-ops/interfaces-expected.json`; any difference fires
+`OPNsenseInterfaceDrift` (ntfy topic network). Changing an interface on
+purpose = change the firewall and that JSON in the same go.
 
 ## Settings the provider cannot manage (GUI, keep this list current)
 
