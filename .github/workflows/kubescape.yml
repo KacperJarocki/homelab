@@ -1,0 +1,125 @@
+# Kubescape on the code, before it reaches the cluster (the in-cluster
+# operator in infra/kubescape scans what already runs).
+#   posture  every Application rendered like Argo CD renders it
+#            (scripts/validate-local.sh with RENDER_DIR), scanned against
+#            Kubescape's controls. Results: GitHub Code Scanning (Security tab)
+#            and the job summary. Informational, never fails the run.
+#   images   pull requests only: images that the PR adds or changes compared
+#            to the base branch (e.g. a Renovate chart bump), scanned for CVEs.
+#            Fails on critical vulnerabilities.
+# Runs on GitHub-hosted runners only: the repo is public, nothing here may run
+# on homelab-arm64.
+name: Kubescape
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+env:
+  KUBESCAPE_VERSION: "4.0.21"
+  KUBESCAPE_SHA256: "7a997a0d46ea37f83fa33d318e615721f569f3721b36a96f7f2c0254b6570fae"
+
+jobs:
+  posture:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install tools
+        run: |
+          command -v yq >/dev/null 2>&1 || {
+            sudo curl -sSL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq
+            sudo chmod +x /usr/local/bin/yq
+          }
+          curl -sSLo kubescape "https://github.com/kubescape/kubescape/releases/download/v${KUBESCAPE_VERSION}/kubescape_${KUBESCAPE_VERSION}_linux_amd64"
+          echo "${KUBESCAPE_SHA256}  kubescape" | sha256sum -c -
+          sudo install -m 0755 kubescape /usr/local/bin/kubescape && rm kubescape
+
+      - name: Render every Argo CD Application
+        run: RENDER_DIR="$RUNNER_TEMP/rendered" scripts/validate-local.sh
+
+      - name: Scan rendered manifests
+        run: |
+          kubescape scan "$RUNNER_TEMP/rendered" --format sarif --output results.sarif
+          {
+            echo '## Kubescape posture scan'
+            echo '```'
+            kubescape scan "$RUNNER_TEMP/rendered" --format pretty-printer 2>&1 | tail -n 80
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif
+          category: kubescape-posture
+
+  images:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: head
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+
+      - name: Install tools
+        run: |
+          command -v yq >/dev/null 2>&1 || {
+            sudo curl -sSL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq
+            sudo chmod +x /usr/local/bin/yq
+          }
+          curl -sSLo kubescape "https://github.com/kubescape/kubescape/releases/download/v${KUBESCAPE_VERSION}/kubescape_${KUBESCAPE_VERSION}_linux_amd64"
+          echo "${KUBESCAPE_SHA256}  kubescape" | sha256sum -c -
+          sudo install -m 0755 kubescape /usr/local/bin/kubescape && rm kubescape
+
+      - name: Images added or changed by this PR
+        id: diff
+        run: |
+          list() { # rendered dir -> sorted unique image references
+            yq -N '.. | select(tag == "!!map") | select(has("image")) | .image | select(tag == "!!str")' "$1"/*.yaml \
+              | sed 's/^"//; s/"$//' | sort -u
+          }
+          # Render failures are reported by the Validate workflow, not here.
+          for side in base head; do
+            RENDER_DIR="$RUNNER_TEMP/$side" sh "$side/scripts/validate-local.sh" >/dev/null 2>&1 || true
+          done
+          # A base branch whose validate-local.sh predates RENDER_DIR renders
+          # nothing; then every image would look new.
+          if ! ls "$RUNNER_TEMP/base"/*.yaml >/dev/null 2>&1; then
+            echo "Base branch cannot render to RENDER_DIR yet; image diff skipped." >> "$GITHUB_STEP_SUMMARY"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          list "$RUNNER_TEMP/head" > head.txt
+          list "$RUNNER_TEMP/base" > base.txt
+          comm -13 base.txt head.txt > new-images.txt
+          echo "count=$(wc -l < new-images.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+          { echo '## Images added or changed by this PR'; echo '```'; cat new-images.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Scan new images for vulnerabilities
+        if: steps.diff.outputs.count != '0'
+        # One run for all images: the CVE database is loaded once. Exits
+        # non-zero if any image has a critical CVE or cannot be pulled.
+        run: |
+          status=0
+          xargs kubescape scan image --severity-threshold critical < new-images.txt > scan.txt 2>&1 || status=$?
+          {
+            echo '## Image vulnerability scan (critical fails the job)'
+            echo '```'
+            tail -n 150 scan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat scan.txt
+          exit "$status"
