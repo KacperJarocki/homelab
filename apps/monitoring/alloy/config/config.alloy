@@ -19,18 +19,45 @@ prometheus.remote_write "default" {
 // LOGS
 ////////////////////////////////////////////////////////////////////////////////
 
-local.file_match "node_logs" {
-  path_targets = [{
-    __path__  = "/var/log/syslog",
-    job       = "node/syslog",
-    node_name = sys.env("HOSTNAME"),
-    cluster   = "k3s-homelab",
-  }]
+// Host logs from the systemd journal (kernel included: under-voltage,
+// watchdog, SD/USB storage errors). Replaces a /var/log/syslog file source
+// that never shipped anything: the file was not mounted and Ubuntu 24.04
+// logs to the journal. Needs /var/log/journal, /run/log/journal and
+// /etc/machine-id from the host (values.yaml). max_age reaches back into the
+// previous boot, so the last lines before an unplanned reboot are kept.
+loki.relabel "node_journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+
+  rule {
+    source_labels = ["__journal__transport"]
+    target_label  = "transport"
+  }
+
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "level"
+  }
+
+  rule {
+    source_labels = ["__journal__boot_id"]
+    target_label  = "boot_id"
+  }
 }
 
-loki.source.file "node_logs" {
-  targets    = local.file_match.node_logs.targets
-  forward_to = [loki.write.default.receiver]
+loki.source.journal "node_journal" {
+  max_age       = "24h"
+  relabel_rules = loki.relabel.node_journal.rules
+  forward_to    = [loki.write.default.receiver]
+  labels        = {
+    job       = "node/journal",
+    node_name = coalesce(sys.env("HOSTNAME"), constants.hostname),
+    cluster   = "k3s-homelab",
+  }
 }
 
 discovery.kubernetes "pod" {
