@@ -8,3 +8,27 @@ alloy:
   # targets; everything else keeps its per-node sharding by HOSTNAME.
   clustering:
     enabled: true
+  # Host journal for loki.source.journal "node_journal" (config.alloy):
+  # /var/log/journal (persistent), /run/log/journal (volatile) and the
+  # machine-id that names the journal directory. All read-only.
+  mounts:
+    varlog: true
+    extra:
+      - name: run-journal
+        mountPath: /run/log/journal
+        readOnly: true
+      - name: machine-id
+        mountPath: /etc/machine-id
+        readOnly: true
+
+controller:
+  volumes:
+    extra:
+      - name: run-journal
+        hostPath:
+          path: /run/log/journal
+          type: DirectoryOrCreate
+      - name: machine-id
+        hostPath:
+          path: /etc/machine-id
+          type: File
