@@ -19,6 +19,11 @@ on:
       - network/opnsense/**
       - .github/workflows/opnsense.yml
   workflow_dispatch:
+    inputs:
+      allow_destroy:
+        description: Allow a plan that deletes or replaces OPNsense objects
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -85,6 +90,30 @@ jobs:
             tofu show -no-color tfplan | tail -n 300
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      # Deleting or replacing a live firewall object is never a side effect:
+      # a plan with any delete action stops here unless this run was started
+      # by hand with allow_destroy. (Un-managing an object without deleting
+      # it is a `removed` block with destroy = false, which is not a delete.)
+      - name: Refuse deletes unless explicitly allowed
+        if: steps.plan.outputs.changes == 'true'
+        env:
+          ALLOW_DESTROY: ${{ inputs.allow_destroy || false }}
+        run: |
+          deletes=$(tofu show -json tfplan | jq -r '
+            .resource_changes[]? | select(.change.actions | index("delete"))
+            | "\(.change.actions | join("+"))  \(.address)"')
+          [ -z "$deletes" ] && exit 0
+          {
+            echo '### Plan deletes or replaces objects'
+            echo '```'
+            echo "$deletes"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "$deletes"
+          if [ "$ALLOW_DESTROY" != "true" ]; then
+            echo "::error::Plan deletes/replaces OPNsense objects. Re-run via workflow_dispatch with allow_destroy=true if intended."
+            exit 1
+          fi
       # The plan file is encrypted (encryption.tf, enforced), so it is safe as
       # an artifact of a public repo. The lock file pins the exact provider
       # build the plan was made with.
