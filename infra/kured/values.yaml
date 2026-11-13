@@ -18,11 +18,12 @@ configuration:
   # Skip pods stuck in Terminating (e.g. on a lost volume) after 5 min.
   skipWaitForDeleteTimeout: "300"
   # Hold off while anything is firing; NodeRebooted fires for 15 min after
-  # every reboot kured itself does. Falco detections (FalcoCriticalEvent,
-  # FalcoWarningEvent) must not hold back security patches either.
+  # every reboot kured itself does. Security findings (Falco detections,
+  # Kubescape CVEs/misconfigurations, firing for a day) must not hold back
+  # security patches either.
   prometheusUrl: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
   alertFiringOnly: true
-  alertFilterRegexp: "^(NodeRebooted|Falco.*Event)$"
+  alertFilterRegexp: "^(NodeRebooted|Falco.*Event|Kubescape.*)$"
   annotateNodes: true
   preferNoScheduleTaint: weave.works/kured-node-reboot
 
