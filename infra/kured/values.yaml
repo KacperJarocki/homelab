@@ -1,0 +1,41 @@
+# Coordinated node reboots after OS updates. Ubuntu's unattended-upgrades
+# drop /var/run/reboot-required (e.g. after a glibc or kernel update); kured
+# cordons + drains one node at a time and reboots it. On the nodes,
+# Unattended-Upgrade::Automatic-Reboot must be "false", otherwise every node
+# keeps rebooting itself right after the upgrade, undrained and
+# uncoordinated (what took down k3s-1/k3s-2 on 2026-11-13).
+configuration:
+  timeZone: Europe/Warsaw
+  startTime: "02:00"
+  endTime: "05:00"
+  period: 10m
+  concurrency: 1
+  # Let etcd, Longhorn replicas and Cilium settle before the next node goes.
+  lockReleaseDelay: 15m
+  # Never reboot an undrained node; retry in the next period instead.
+  drainTimeout: 15m
+  forceReboot: false
+  # Skip pods stuck in Terminating (e.g. on a lost volume) after 5 min.
+  skipWaitForDeleteTimeout: "300"
+  # Hold off while anything is firing; NodeRebooted fires for 15 min after
+  # every reboot kured itself does.
+  prometheusUrl: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+  alertFiringOnly: true
+  alertFilterRegexp: "^NodeRebooted$"
+  annotateNodes: true
+  preferNoScheduleTaint: weave.works/kured-node-reboot
+
+# Control-plane nodes run workloads here too.
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+# Kyverno require-requests-limits.
+resources:
+  requests:
+    cpu: 5m
+    memory: 24Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
