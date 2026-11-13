@@ -3,7 +3,10 @@
 #   - Helm sources: helm template with the referenced $values files
 #   - Git sources: kustomize build, or a YAML parse for plain-manifest directories
 # Needs: helm, kubectl, yq (mikefarah). Network access is required for charts.
+# RENDER_DIR=<dir>: also keep the rendered manifests there, one file per
+# Application source (<app>.<source>.yaml); the Kubescape CI job scans them.
 set -eu
+RENDER_DIR=${RENDER_DIR:-}
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
@@ -14,6 +17,15 @@ done
 
 status=0
 fail() { echo "FAIL $1" >&2; status=1; }
+
+# Where rendered output goes: /dev/null, or a file in RENDER_DIR.
+out() { # app index
+  if [ -n "$RENDER_DIR" ]; then
+    echo "$RENDER_DIR/$(basename "$1" .yaml).$(echo "$2" | tr -c 'a-z0-9\n' '-').yaml"
+  else
+    echo /dev/null
+  fi
+}
 
 render_helm() { # app ns index
   app=$1; ns=$2; i=$3
@@ -32,7 +44,7 @@ render_helm() { # app ns index
     *)     set -- "oci://$repo/$chart" "$@" ;;
   esac
   if helm template "$release" "$@" --version "$version" \
-       --namespace "$ns" --include-crds >/dev/null 2>"$tmp"; then
+       --namespace "$ns" --include-crds >"$(out "$app" "$i")" 2>"$tmp"; then
     echo "ok   helm      $chart@$version ($app)"
   else
     fail "$app: helm template $chart@$version"; cat "$tmp" >&2
@@ -49,16 +61,19 @@ render_git() { # app index
   dir=$(yq ".$i.path" "$app")
   [ -d "$dir" ] || { fail "$app: path $dir not found"; return; }
   if [ -f "$dir/kustomization.yaml" ]; then
-    kubectl kustomize "$dir" >/dev/null 2>"$tmp" && echo "ok   kustomize $dir ($app)" || { fail "$app: kustomize $dir"; cat "$tmp" >&2; }
+    kubectl kustomize "$dir" >"$(out "$app" "$i")" 2>"$tmp" && echo "ok   kustomize $dir ($app)" || { fail "$app: kustomize $dir"; cat "$tmp" >&2; }
   else
+    dest=$(out "$app" "$i"); : >"$dest"
     for f in $(find "$dir" -name '*.yaml' | sort); do
       yq -e '.kind' "$f" >/dev/null 2>"$tmp" || { fail "$f: invalid manifest"; cat "$tmp" >&2; }
+      { echo "---"; cat "$f"; } >>"$dest"
     done
     echo "ok   manifests $dir ($app)"
   fi
 }
 
 tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT
+[ -z "$RENDER_DIR" ] || mkdir -p "$RENDER_DIR"
 
 for app in $(find argocd/root argocd/bootstrap -name '*.yaml' | sort); do
   yq -e '.apiVersion == "argoproj.io/v1alpha1"' "$app" >/dev/null 2>"$tmp" || { fail "$app: not an Argo CD manifest"; cat "$tmp" >&2; continue; }
