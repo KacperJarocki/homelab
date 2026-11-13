@@ -116,24 +116,16 @@ behind the `alloy-syslog` LoadBalancer.
    set), promiscuous off, pattern matcher *Hyperscan*, home networks stay
    RFC1918, turn on **Enable syslog alerts** and **Enable eve syslog
    output**.
-3. Download: disable everything not listed here (all 64 rulesets are on
-   today), then enable and download:
-   - reputation lists, near-zero false positives, **drop**:
-     ET open/compromised, ET open/drop, ET open/dshield, ET open/ciarmy,
-     ET open/botcc, ET open/botcc.portgrouped, abuse.ch/Feodo Tracker,
-     abuse.ch/SSL Fingerprint Blacklist, abuse.ch/SSL IP Blacklist,
-     abuse.ch/ThreatFox, abuse.ch/URLhaus
-   - behaviour rules, **alert** first: ET open/emerging-malware,
-     ET open/emerging-exploit, ET open/emerging-exploit_kit,
-     ET open/emerging-scan, ET open/emerging-attack_response,
-     ET open/emerging-web_server
-4. Policy tab: policy `drop-reputation` (priority 1): rulesets = the first
-   group, action *alert* -> new action **drop**. Policy `alert-behaviour`
-   (priority 2): the second group, new action *alert*. After a week of clean
-   alerts in Grafana, move rulesets from the second policy to drop.
-5. System > Settings > Cron: enable the existing job *ids rule updates*
-   (origin IDS, currently disabled, so signatures are stale): daily, e.g.
-   04:00.
+3. Rulesets, policies and the daily signature update are code:
+   `network/opnsense/ids/ids-apply.sh` (the provider has no IDS resources).
+   It keeps exactly the listed rulesets enabled, maintains the policies
+   `drop-reputation` (abuse.ch + ET reputation lists -> **drop**) and
+   `alert-behaviour` (ET emerging-* behaviour rules -> alert), and enables
+   the *ids rule updates* cron job at 04:00. Without `--apply` it only
+   prints what would change; `--ips` additionally sets Netmap mode.
+   API user privileges: *Services: Intrusion Detection*, *System: Settings:
+   Cron*. After a week of clean alerts in Grafana, move rulesets from
+   `ALERT_RULESETS` to `DROP_RULESETS` and run it again.
 
 Unused plugins: `os-isc-dhcp` (no DHCP server configured, no leases) and
 `os-wazuh-agent` (disabled) can be removed in System > Firmware > Plugins.
