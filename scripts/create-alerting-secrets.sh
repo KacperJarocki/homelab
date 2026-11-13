@@ -43,5 +43,8 @@ In the ntfy app on the phone (on the home VPN):
     Service URL: https://ntfy.homelab.kacperjarocki.dev
     Username:    phone
     Password:    ${phone_password}
-  then subscribe to topic "homelab-alerts" on that server.
+  then subscribe to these topics on that server:
+    homelab-critical    (set it to override Do Not Disturb)
+    homelab-workloads   homelab-nodes   homelab-storage
+    homelab-network     homelab-monitoring   homelab-alerts (catch-all)
 MSG
