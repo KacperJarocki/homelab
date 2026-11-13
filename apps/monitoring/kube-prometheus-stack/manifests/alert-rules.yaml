@@ -13,6 +13,18 @@
 # node-exporter series only carry instance="<ip>:9100"; the node rules join
 # node_uname_info to add the hostname as `node` (same label as the
 # kube-state-metrics rules, so the NodeNotReady inhibition matches them too).
+# Some node-exporter metrics are scraped twice (jobs node_exporter and
+# services_annotated); newer rules take `max by (instance, ...)` first so they
+# fire once.
+#
+# Every rule carries a `topic` label; Alertmanager (values.yaml) sends it to
+# the ntfy topic homelab-<topic>:
+#   workloads   pods, deployments, jobs
+#   nodes       the Raspberry Pis themselves (disk, memory, heat, reboots)
+#   storage     persistent volumes
+#   network     certificates, the OPNsense firewall
+#   monitoring  the alerting pipeline itself (scrape targets, Alertmanager)
+# severity=critical goes to homelab-critical instead, whatever the topic.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -27,6 +39,7 @@ spec:
           for: 10m
           labels:
             severity: critical
+            topic: workloads
           annotations:
             title: "{{ $labels.pod }} keeps crashing"
             summary: "Container {{ $labels.container }} in {{ $labels.namespace }} is in CrashLoopBackOff"
@@ -35,15 +48,39 @@ spec:
           expr: sum by (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[30m])) > 3
           labels:
             severity: warning
+            topic: workloads
           annotations:
             title: "{{ $labels.pod }} restarts often"
             summary: "Container {{ $labels.container }} in {{ $labels.namespace }}: {{ printf \"%.0f\" $value }} restarts in 30 min"
             description: "Probably a liveness probe or OOM kill, even if it is not crash-looping right now."
+        - alert: ContainerOOMKilled
+          expr: |
+            (max by (namespace, pod, container) (kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}) == 1)
+            and on (namespace, pod, container)
+              (sum by (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[15m])) > 0)
+          labels:
+            severity: warning
+            topic: workloads
+          annotations:
+            title: "{{ $labels.pod }} ran out of memory"
+            summary: "Container {{ $labels.container }} in {{ $labels.namespace }} was OOM-killed"
+            description: "It hit its memory limit and was restarted. Raise the limit or look for a leak."
+        - alert: PodImagePullFailing
+          expr: max by (namespace, pod, container, reason) (kube_pod_container_status_waiting_reason{reason=~"ErrImagePull|ImagePullBackOff|InvalidImageName"}) == 1
+          for: 10m
+          labels:
+            severity: warning
+            topic: workloads
+          annotations:
+            title: "{{ $labels.pod }} cannot pull its image"
+            summary: "Container {{ $labels.container }} in {{ $labels.namespace }}: {{ $labels.reason }}"
+            description: "Wrong tag, missing arm64 build, registry down or rate-limited."
         - alert: PodNotRunning
           expr: sum by (namespace, pod) (kube_pod_status_phase{phase=~"Pending|Unknown|Failed"}) > 0
           for: 15m
           labels:
             severity: warning
+            topic: workloads
           annotations:
             title: "{{ $labels.pod }} is not running"
             summary: "Stuck in Pending / Unknown / Failed in {{ $labels.namespace }} for 15+ min"
@@ -53,15 +90,27 @@ spec:
           for: 15m
           labels:
             severity: warning
+            topic: workloads
           annotations:
             title: "{{ $labels.deployment }} is missing replicas"
             summary: "{{ $value }} replica(s) unavailable in {{ $labels.namespace }} for 15+ min"
             description: "Check why its pods are not ready."
+        - alert: DeploymentRolloutStuck
+          expr: kube_deployment_status_condition{condition="Progressing",status="false"} == 1
+          for: 15m
+          labels:
+            severity: warning
+            topic: workloads
+          annotations:
+            title: "Rollout of {{ $labels.deployment }} is stuck"
+            summary: "In {{ $labels.namespace }}: progress deadline exceeded"
+            description: "The new ReplicaSet does not become ready; the old pods keep serving."
         - alert: DaemonSetNotReady
           expr: kube_daemonset_status_desired_number_scheduled - kube_daemonset_status_number_ready > 0
           for: 15m
           labels:
             severity: warning
+            topic: workloads
           annotations:
             title: "{{ $labels.daemonset }} is not ready everywhere"
             summary: "{{ $value }} pod(s) not ready in {{ $labels.namespace }} for 15+ min"
@@ -71,6 +120,7 @@ spec:
           for: 15m
           labels:
             severity: warning
+            topic: workloads
           annotations:
             title: "{{ $labels.statefulset }} is missing replicas"
             summary: "{{ $value }} replica(s) not ready in {{ $labels.namespace }} for 15+ min"
@@ -80,10 +130,21 @@ spec:
           for: 5m
           labels:
             severity: warning
+            topic: workloads
           annotations:
             title: "Job {{ $labels.job_name }} failed"
             summary: "In {{ $labels.namespace }}"
             description: "A Job or CronJob run ended in failure; see its pod logs."
+        - alert: CronJobSuspended
+          expr: kube_cronjob_spec_suspend == 1
+          for: 24h
+          labels:
+            severity: warning
+            topic: workloads
+          annotations:
+            title: "CronJob {{ $labels.cronjob }} is suspended"
+            summary: "In {{ $labels.namespace }}, for over a day"
+            description: "Forgotten after debugging? It will not run until resumed."
     - name: nodes
       rules:
         - alert: NodeNotReady
@@ -91,10 +152,33 @@ spec:
           for: 5m
           labels:
             severity: critical
+            topic: nodes
           annotations:
             title: "{{ $labels.node }} is down"
             summary: "The node has not reported Ready for 5+ min"
             description: "Its pods are being rescheduled. Check power and network."
+        - alert: NodeUnderPressure
+          expr: kube_node_status_condition{condition=~"MemoryPressure|DiskPressure|PIDPressure",status="true"} == 1
+          for: 5m
+          labels:
+            severity: warning
+            topic: nodes
+          annotations:
+            title: "{{ $labels.node }} reports {{ $labels.condition }}"
+            summary: "The kubelet is evicting pods or refusing new ones"
+            description: "Free memory / disk on the node or move workloads away."
+        # kured cordons a node for its reboot and uncordons it afterwards; a
+        # node left cordoned for hours is a stuck reboot or a forgotten drain.
+        - alert: NodeCordoned
+          expr: kube_node_spec_unschedulable == 1
+          for: 2h
+          labels:
+            severity: warning
+            topic: nodes
+          annotations:
+            title: "{{ $labels.node }} is still cordoned"
+            summary: "Unschedulable for 2+ hours"
+            description: "kubectl uncordon {{ $labels.node }} if the maintenance is over (check kured)."
         # A Raspberry Pi that resets (power, watchdog) is often back within
         # NodeNotReady's 5 min, so reboots would otherwise go unnoticed.
         - alert: NodeRebooted
@@ -104,6 +188,7 @@ spec:
               label_replace(node_uname_info{group!="firewall"}, "node", "$1", "nodename", "(.*)")
           labels:
             severity: warning
+            topic: nodes
           annotations:
             title: "{{ $labels.node }} rebooted"
             summary: "Up again for {{ $value | humanizeDuration }}"
@@ -116,10 +201,45 @@ spec:
           for: 15m
           labels:
             severity: warning
+            topic: nodes
           annotations:
             title: "Disk almost full on {{ $labels.node }}"
             summary: "{{ $labels.mountpoint }}: {{ $value | humanizePercentage }} free"
             description: "Less than 10 % free space."
+        # Only below 20 % free: on emptier disks image pulls and log rotation
+        # make the 6 h trend swing wildly.
+        - alert: NodeFilesystemFillingUp
+          expr: |
+            (
+              max by (instance, mountpoint) (predict_linear(node_filesystem_avail_bytes{fstype=~"ext4|xfs|btrfs",group!="firewall"}[6h], 24 * 3600)) < 0
+              and on (instance, mountpoint)
+              max by (instance, mountpoint) (node_filesystem_avail_bytes{fstype=~"ext4|xfs|btrfs",group!="firewall"} / node_filesystem_size_bytes) < 0.20
+            )
+            * on (instance) group_left (node)
+              label_replace(node_uname_info{group!="firewall"}, "node", "$1", "nodename", "(.*)")
+          for: 1h
+          labels:
+            severity: warning
+            topic: nodes
+          annotations:
+            title: "Disk on {{ $labels.node }} fills up within a day"
+            summary: "{{ $labels.mountpoint }} is under 20 % free and shrinking"
+            description: "At the current rate it is full in under 24 h. Look for growing logs or images (crictl rmi --prune)."
+        # The kernel remounts the root fs read-only after I/O errors: a dying
+        # SSD/SD card. The node keeps "running" but nothing can write.
+        - alert: NodeFilesystemReadOnly
+          expr: |
+            (max by (instance, mountpoint) (node_filesystem_readonly{fstype=~"ext4|xfs|btrfs",group!="firewall"}) == 1)
+            * on (instance) group_left (node)
+              label_replace(node_uname_info{group!="firewall"}, "node", "$1", "nodename", "(.*)")
+          for: 5m
+          labels:
+            severity: critical
+            topic: nodes
+          annotations:
+            title: "{{ $labels.node }}: {{ $labels.mountpoint }} is read-only"
+            summary: "The filesystem was remounted read-only"
+            description: "Usually disk I/O errors. Check dmesg on the node and the SSD health (smartctl)."
         - alert: NodeMemoryLow
           expr: |
             (node_memory_MemAvailable_bytes{group!="firewall"} / node_memory_MemTotal_bytes < 0.10)
@@ -128,10 +248,30 @@ spec:
           for: 15m
           labels:
             severity: warning
+            topic: nodes
           annotations:
             title: "Low memory on {{ $labels.node }}"
             summary: "{{ $value | humanizePercentage }} of RAM available"
             description: "Less than 10 % available for 15+ min; pods may get OOM-killed."
+        # 4-core Pis peak around load 5 in normal operation (7-day max).
+        - alert: NodeHighLoad
+          expr: |
+            (
+              max by (instance) (node_load15{group!="firewall"})
+              / on (instance)
+              count by (instance) (node_cpu_seconds_total{mode="idle",job="prometheus.scrape.node_exporter",group!="firewall"})
+              > 1.5
+            )
+            * on (instance) group_left (node)
+              label_replace(node_uname_info{group!="firewall"}, "node", "$1", "nodename", "(.*)")
+          for: 30m
+          labels:
+            severity: warning
+            topic: nodes
+          annotations:
+            title: "{{ $labels.node }} is overloaded"
+            summary: "15-min load at {{ printf \"%.1f\" $value }}× its CPU cores"
+            description: "Something is hogging the CPU or waiting on a slow disk; check top / iotop."
         - alert: NodeHot
           expr: |
             (node_thermal_zone_temp{group!="firewall"} > 80)
@@ -140,10 +280,24 @@ spec:
           for: 10m
           labels:
             severity: warning
+            topic: nodes
           annotations:
             title: "{{ $labels.node }} is running hot"
             summary: "CPU at {{ printf \"%.0f\" $value }} °C"
             description: "The Raspberry Pi throttles at 85 °C; check the fan and airflow."
+        - alert: NodeSSDHot
+          expr: |
+            (max by (instance) (node_hwmon_temp_celsius{chip=~"nvme.*",group!="firewall"}) > 70)
+            * on (instance) group_left (node)
+              label_replace(node_uname_info{group!="firewall"}, "node", "$1", "nodename", "(.*)")
+          for: 15m
+          labels:
+            severity: warning
+            topic: nodes
+          annotations:
+            title: "NVMe SSD on {{ $labels.node }} is hot"
+            summary: "{{ printf \"%.0f\" $value }} °C (normally under 60 °C)"
+            description: "NVMe drives throttle around 70-80 °C; check the heatsink and airflow."
         - alert: NodeClockNotSynchronised
           expr: |
             (min_over_time(node_timex_sync_status{group!="firewall"}[10m]) == 0)
@@ -152,10 +306,144 @@ spec:
           for: 10m
           labels:
             severity: warning
+            topic: nodes
           annotations:
             title: "Clock out of sync on {{ $labels.node }}"
             summary: "NTP has not synchronised for 20+ min"
             description: "Logs and event times from this node may be wrong."
+    - name: storage
+      rules:
+        # kubelet volume stats arrive through the apiserver job, so the PVC's
+        # namespace is in exported_namespace; copy it to namespace for the
+        # Alertmanager grouping and the notification.
+        - alert: PersistentVolumeAlmostFull
+          expr: |
+            label_replace(
+              min by (exported_namespace, persistentvolumeclaim) (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes),
+              "namespace", "$1", "exported_namespace", "(.*)"
+            ) < 0.15
+          for: 15m
+          labels:
+            severity: warning
+            topic: storage
+          annotations:
+            title: "Volume {{ $labels.persistentvolumeclaim }} almost full"
+            summary: "{{ $value | humanizePercentage }} free in {{ $labels.namespace }}"
+            description: "Expand the PVC (Longhorn supports online expansion) or clean up data."
+        - alert: PersistentVolumeFull
+          expr: |
+            label_replace(
+              min by (exported_namespace, persistentvolumeclaim) (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes),
+              "namespace", "$1", "exported_namespace", "(.*)"
+            ) < 0.05
+          for: 5m
+          labels:
+            severity: critical
+            topic: storage
+          annotations:
+            title: "Volume {{ $labels.persistentvolumeclaim }} is full"
+            summary: "Only {{ $value | humanizePercentage }} free in {{ $labels.namespace }}"
+            description: "Writes are about to fail (databases stop). Expand the PVC now."
+        # Same gating as NodeFilesystemFillingUp: some volumes share the
+        # node's disk and follow its image/log churn (tens of GB a day).
+        - alert: PersistentVolumeFillingUp
+          expr: |
+            label_replace(
+              (
+                min by (exported_namespace, persistentvolumeclaim) (predict_linear(kubelet_volume_stats_available_bytes[6h], 24 * 3600)) < 0
+                and on (exported_namespace, persistentvolumeclaim)
+                min by (exported_namespace, persistentvolumeclaim) (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes) < 0.20
+              ),
+              "namespace", "$1", "exported_namespace", "(.*)"
+            )
+          for: 1h
+          labels:
+            severity: warning
+            topic: storage
+          annotations:
+            title: "Volume {{ $labels.persistentvolumeclaim }} fills up within a day"
+            summary: "Under 20 % free in {{ $labels.namespace }} and shrinking"
+            description: "Retention misconfigured, or it just needs to grow."
+        - alert: PersistentVolumeClaimPending
+          expr: kube_persistentvolumeclaim_status_phase{phase="Pending"} == 1
+          for: 15m
+          labels:
+            severity: warning
+            topic: storage
+          annotations:
+            title: "Volume {{ $labels.persistentvolumeclaim }} is not bound"
+            summary: "Pending in {{ $labels.namespace }} for 15+ min"
+            description: "Longhorn cannot provision it (not enough nodes/space for the replicas?) or the StorageClass is wrong."
+    - name: network
+      rules:
+        # Let's Encrypt certificates renew 30 days before expiry; under 14
+        # days left means renewal has been failing for two weeks.
+        - alert: CertificateExpiringSoon
+          expr: |
+            label_replace(
+              max by (exported_namespace, name) (certmanager_certificate_expiration_timestamp_seconds - time()),
+              "namespace", "$1", "exported_namespace", "(.*)"
+            ) < 14 * 24 * 3600
+          for: 1h
+          labels:
+            severity: warning
+            topic: network
+          annotations:
+            title: "Certificate {{ $labels.name }} expires soon"
+            summary: "{{ $value | humanizeDuration }} left ({{ $labels.namespace }})"
+            description: "cert-manager has not renewed it. kubectl describe certificate / challenges in that namespace."
+        - alert: CertificateExpiringCritical
+          expr: |
+            label_replace(
+              max by (exported_namespace, name) (certmanager_certificate_expiration_timestamp_seconds - time()),
+              "namespace", "$1", "exported_namespace", "(.*)"
+            ) < 3 * 24 * 3600
+          for: 1h
+          labels:
+            severity: critical
+            topic: network
+          annotations:
+            title: "Certificate {{ $labels.name }} expires in days"
+            summary: "{{ $value | humanizeDuration }} left ({{ $labels.namespace }})"
+            description: "HTTPS for this site breaks when it expires. Fix the cert-manager challenge now."
+        - alert: CertificateNotReady
+          expr: |
+            label_replace(
+              max by (exported_namespace, name) (certmanager_certificate_ready_status{condition="False"}),
+              "namespace", "$1", "exported_namespace", "(.*)"
+            ) == 1
+          for: 30m
+          labels:
+            severity: warning
+            topic: network
+          annotations:
+            title: "Certificate {{ $labels.name }} is not ready"
+            summary: "In {{ $labels.namespace }} for 30+ min"
+            description: "Issuance or renewal is failing; check its CertificateRequest and Order."
+        - alert: FirewallUnreachable
+          expr: max by (instance) (up{group="firewall",job="node_exporter"}) == 0
+          for: 5m
+          labels:
+            severity: critical
+            topic: network
+          annotations:
+            title: "OPNsense is unreachable"
+            summary: "Its node-exporter has not answered for 5+ min"
+            description: "Router down or the cluster lost its route to it. (This alert only reaches you if the phone is not behind it.)"
+        - alert: FirewallFilesystemAlmostFull
+          expr: |
+            max by (instance, mountpoint) (
+              node_filesystem_avail_bytes{group="firewall",fstype!~"devfs|tmpfs|fdescfs|nullfs"}
+              / node_filesystem_size_bytes{group="firewall",fstype!~"devfs|tmpfs|fdescfs|nullfs"}
+            ) < 0.10
+          for: 15m
+          labels:
+            severity: warning
+            topic: network
+          annotations:
+            title: "Disk almost full on OPNsense"
+            summary: "{{ $labels.mountpoint }}: {{ $value | humanizePercentage }} free"
+            description: "Usually logs or Netflow data; trim them in Reporting > Settings."
     - name: monitoring
       rules:
         - alert: KubeStateMetricsMissing
@@ -163,6 +451,7 @@ spec:
           for: 10m
           labels:
             severity: critical
+            topic: monitoring
           annotations:
             title: "Monitoring is blind to pods and nodes"
             summary: "No kube-state-metrics data in Prometheus for 10+ min"
@@ -172,7 +461,38 @@ spec:
           for: 15m
           labels:
             severity: warning
+            topic: monitoring
           annotations:
             title: "Node metrics missing"
             summary: "Only {{ $value }} of 5 nodes report node-exporter metrics"
             description: "Node alerts (disk, memory, temperature) are blind for the missing nodes."
+        # Alloy scrapes some targets once per Alloy pod: only alert when no
+        # scrape of the target succeeds.
+        - alert: ScrapeTargetDown
+          expr: max by (job, instance) (up) == 0
+          for: 15m
+          labels:
+            severity: warning
+            topic: monitoring
+          annotations:
+            title: "Metrics from {{ $labels.instance }} are missing"
+            summary: "Scrape job {{ $labels.job }} has failed for 15+ min"
+            description: "The exporter is down or unreachable; alerts based on it are blind."
+        - alert: AlertmanagerNotificationsFailing
+          expr: sum by (integration) (increase(alertmanager_notifications_failed_total[15m])) > 0
+          labels:
+            severity: warning
+            topic: monitoring
+          annotations:
+            title: "Alertmanager cannot deliver notifications"
+            summary: "{{ printf \"%.0f\" $value }} failed {{ $labels.integration }} sends in 15 min"
+            description: "Some alerts may not have reached the phone; check ntfy and the Homelab / Alerts dashboard."
+        - alert: PrometheusRuleFailures
+          expr: sum by (rule_group) (increase(prometheus_rule_evaluation_failures_total[15m])) > 0
+          labels:
+            severity: warning
+            topic: monitoring
+          annotations:
+            title: "Alert rules fail to evaluate"
+            summary: "{{ printf \"%.0f\" $value }} failures in 15 min ({{ $labels.rule_group }})"
+            description: "Usually a many-to-many join; those alerts cannot fire. See Prometheus > Rules."

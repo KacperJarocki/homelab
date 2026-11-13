@@ -22,26 +22,80 @@ alertmanager:
       group_wait: 30s
       group_interval: 5m
       repeat_interval: 12h
-      # Replaces the chart's default sub-route to a "null" receiver for the
-      # Watchdog alert (default rules are off, and "null" is not defined here).
-      routes: []
+      # One ntfy topic per area (the rule's `topic` label), so each can get its
+      # own sound / mute on the phone. Everything critical goes to
+      # homelab-critical instead (set that one to override Do Not Disturb).
+      # Alerts without a topic land in homelab-alerts (the route's receiver).
+      # This list also replaces the chart's default sub-route to a "null"
+      # receiver for the Watchdog alert (default rules are off).
+      routes:
+        - receiver: ntfy-critical
+          matchers: ['severity = "critical"']
+        - receiver: ntfy-workloads
+          matchers: ['topic = "workloads"']
+        - receiver: ntfy-nodes
+          matchers: ['topic = "nodes"']
+        - receiver: ntfy-storage
+          matchers: ['topic = "storage"']
+        - receiver: ntfy-network
+          matchers: ['topic = "network"']
+        - receiver: ntfy-monitoring
+          matchers: ['topic = "monitoring"']
+    # ntfy formats the payload with its own template (homelab.yml in
+    # apps/monitoring/ntfy/manifests/configmap.yaml); tapping the notification
+    # opens the Homelab / Alerts dashboard. The phone user may read
+    # homelab-*, Alertmanager may publish to it (ntfy auth-access).
     receivers:
       - name: ntfy
         webhook_configs:
-          # ntfy formats the payload with its own template (homelab.yml in
-          # apps/monitoring/ntfy/manifests/configmap.yaml); tapping the
-          # notification opens the Homelab / Alerts dashboard.
           - url: "http://ntfy.monitoring.svc.cluster.local/homelab-alerts?template=homelab&click=https%3A%2F%2Fgrafana.homelab.kacperjarocki.dev%2Fd%2Fhomelab-alerts"
             send_resolved: true
-            http_config:
+            http_config: &ntfy-auth
               authorization:
                 type: Bearer
                 credentials_file: /etc/alertmanager/secrets/alertmanager-ntfy/token
+      - name: ntfy-critical
+        webhook_configs:
+          - url: "http://ntfy.monitoring.svc.cluster.local/homelab-critical?template=homelab&click=https%3A%2F%2Fgrafana.homelab.kacperjarocki.dev%2Fd%2Fhomelab-alerts"
+            send_resolved: true
+            http_config: *ntfy-auth
+      - name: ntfy-workloads
+        webhook_configs:
+          - url: "http://ntfy.monitoring.svc.cluster.local/homelab-workloads?template=homelab&click=https%3A%2F%2Fgrafana.homelab.kacperjarocki.dev%2Fd%2Fhomelab-alerts"
+            send_resolved: true
+            http_config: *ntfy-auth
+      - name: ntfy-nodes
+        webhook_configs:
+          - url: "http://ntfy.monitoring.svc.cluster.local/homelab-nodes?template=homelab&click=https%3A%2F%2Fgrafana.homelab.kacperjarocki.dev%2Fd%2Fhomelab-alerts"
+            send_resolved: true
+            http_config: *ntfy-auth
+      - name: ntfy-storage
+        webhook_configs:
+          - url: "http://ntfy.monitoring.svc.cluster.local/homelab-storage?template=homelab&click=https%3A%2F%2Fgrafana.homelab.kacperjarocki.dev%2Fd%2Fhomelab-alerts"
+            send_resolved: true
+            http_config: *ntfy-auth
+      - name: ntfy-network
+        webhook_configs:
+          - url: "http://ntfy.monitoring.svc.cluster.local/homelab-network?template=homelab&click=https%3A%2F%2Fgrafana.homelab.kacperjarocki.dev%2Fd%2Fhomelab-alerts"
+            send_resolved: true
+            http_config: *ntfy-auth
+      - name: ntfy-monitoring
+        webhook_configs:
+          - url: "http://ntfy.monitoring.svc.cluster.local/homelab-monitoring?template=homelab&click=https%3A%2F%2Fgrafana.homelab.kacperjarocki.dev%2Fd%2Fhomelab-alerts"
+            send_resolved: true
+            http_config: *ntfy-auth
     inhibit_rules:
       # A node that is down explains everything else failing on it.
       - source_matchers: ['alertname = "NodeNotReady"']
         target_matchers: ['severity = "warning"']
         equal: ["node"]
+      # The critical variant replaces the early warning, not adds to it.
+      - source_matchers: ['alertname = "PersistentVolumeFull"']
+        target_matchers: ['alertname =~ "PersistentVolumeAlmostFull|PersistentVolumeFillingUp"']
+        equal: ["namespace", "persistentvolumeclaim"]
+      - source_matchers: ['alertname = "CertificateExpiringCritical"']
+        target_matchers: ['alertname = "CertificateExpiringSoon"']
+        equal: ["namespace", "name"]
 
 defaultRules:
   create: false
