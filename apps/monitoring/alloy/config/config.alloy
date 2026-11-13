@@ -424,6 +424,11 @@ prometheus.scrape "kyverno" {
   metrics_path    = "/metrics"
 }
 
+// OPNsense is a single target outside the cluster, but every pod of this
+// DaemonSet runs the same config. The clustering block hands each target to
+// exactly one Alloy pod (another takes over if it goes away); without it the
+// firewall was scraped once per pod. Target labels must be identical on all
+// pods for that, so nothing here may depend on HOSTNAME.
 prometheus.scrape "opnsense_node" {
   targets = [{
     __address__  = "10.20.0.1:9100",
@@ -431,11 +436,14 @@ prometheus.scrape "opnsense_node" {
     group        = "firewall",
     host         = "opnsense-1",
     cluster      = "k3s-homelab",
-    alloy_node   = coalesce(sys.env("HOSTNAME"), constants.hostname),
-    instance     = "opnsense@" + coalesce(sys.env("HOSTNAME"), constants.hostname),
+    instance     = "opnsense-1",
   }]
   forward_to      = [prometheus.remote_write.default.receiver]
   scrape_interval = "15s"
+
+  clustering {
+    enabled = true
+  }
 }
 
 prometheus.scrape "opnsense_exporter" {
@@ -445,9 +453,12 @@ prometheus.scrape "opnsense_exporter" {
     group        = "firewall",
     host         = "opnsense-1",
     cluster      = "k3s-homelab",
-    alloy_node   = coalesce(sys.env("HOSTNAME"), constants.hostname),
-    instance     = "opnsense@" + coalesce(sys.env("HOSTNAME"), constants.hostname),
+    instance     = "opnsense-1",
   }]
   forward_to      = [prometheus.remote_write.default.receiver]
   scrape_interval = "15s"
+
+  clustering {
+    enabled = true
+  }
 }

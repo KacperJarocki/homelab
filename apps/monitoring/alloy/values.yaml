@@ -3,3 +3,8 @@ alloy:
     create: false
     name: alloy
     key: config.alloy
+  # Alloy pods find each other through the chart's headless Service. Only
+  # components with a `clustering` block (the OPNsense scrapes) share their
+  # targets; everything else keeps its per-node sharding by HOSTNAME.
+  clustering:
+    enabled: true
