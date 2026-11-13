@@ -7,9 +7,11 @@
 # `sequence` is the evaluation order; keep gaps of 10 for inserts.
 #
 # Deliberately NOT managed here (lockout protection, change in the GUI only):
-#   - the automatic anti-lockout rules
-#   - "FW GUI" (PRD -> firewall, uuid 497eff7a-...), sequence 41: it is how
-#     the in-cluster runner reaches this API. Keep 41 free in this file.
+#   - the automatic anti-lockout rules (LAN -> GUI); admin access to the GUI
+#     is from LAN, which never depends on this file.
+#   - "FW GUI" (PRD -> firewall, uuid 497eff7a-...), sequence 41. Since the
+#     PRD -> firewall rules 33-40 below it never matches any more; disable or
+#     delete it in the GUI. Keep 41 free in this file.
 
 # --- LAN ---------------------------------------------------------------------
 
@@ -60,8 +62,9 @@ resource "opnsense_firewall_filter" "lan_to_any_v6" {
 
 # PRD may not initiate anything towards LAN (LAN -> PRD is allowed above).
 resource "opnsense_firewall_filter" "prd_block_lan" {
-  sequence  = 31
-  interface = { interface = ["opt3"] }
+  description = "PRD may not initiate to LAN"
+  sequence    = 31
+  interface   = { interface = ["opt3"] }
   filter = {
     action      = "block"
     direction   = "in"
@@ -73,9 +76,124 @@ resource "opnsense_firewall_filter" "prd_block_lan" {
   }
 }
 
-resource "opnsense_firewall_filter" "prd_to_prd" {
-  sequence  = 51
+# PRD -> firewall: only what clients need, management only from the k3s
+# nodes. Pod traffic (ARC runner -> API, Alloy -> node_exporter) leaves the
+# cluster masqueraded to the node IP (Cilium, enable-ipv4-masquerade).
+resource "opnsense_firewall_filter" "prd_block_wan_net" {
+  description = "PRD may not reach the WAN net (ISP router)"
+  sequence    = 32
+  interface   = { interface = ["opt3"] }
+  filter = {
+    action      = "block"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "any"
+    source      = { net = "opt3" }
+    destination = { net = "wan" }
+    log         = true
+  }
+}
+
+resource "opnsense_firewall_filter" "prd_fw_dns" {
+  description = "PRD to firewall DNS (Unbound)"
+  sequence    = 33
+  interface   = { interface = ["opt3"] }
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "TCP/UDP"
+    source      = { net = "opt3" }
+    destination = { net = "(self)", port = "53" }
+  }
+}
+
+resource "opnsense_firewall_filter" "prd_fw_ntp" {
+  description = "PRD to firewall NTP"
+  sequence    = 34
+  interface   = { interface = ["opt3"] }
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "UDP"
+    source      = { net = "opt3" }
+    destination = { net = "(self)", port = "123" }
+  }
+}
+
+resource "opnsense_firewall_filter" "prd_fw_icmp" {
+  description = "PRD to firewall ICMP"
+  sequence    = 35
+  interface   = { interface = ["opt3"] }
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "ICMP"
+    source      = { net = "opt3" }
+    destination = { net = "(self)" }
+  }
+}
+
+resource "opnsense_firewall_filter" "k3s_fw_api" {
+  description = "k3s nodes to firewall GUI/API (ARC runner, OpenTofu)"
+  sequence    = 36
+  interface   = { interface = ["opt3"] }
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "TCP"
+    source      = { net = opnsense_firewall_alias.k3s_nodes.name }
+    destination = { net = "(self)", port = "443" }
+  }
+}
+
+resource "opnsense_firewall_filter" "k3s_fw_node_exporter" {
+  description = "k3s nodes to firewall node_exporter (Alloy)"
+  sequence    = 37
+  interface   = { interface = ["opt3"] }
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "TCP"
+    source      = { net = opnsense_firewall_alias.k3s_nodes.name }
+    destination = { net = "(self)", port = "9100" }
+  }
+}
+
+resource "opnsense_firewall_filter" "prd_block_fw" {
+  description = "PRD to firewall: everything else"
+  sequence    = 40
+
+  # Created only after the passes above exist, otherwise the runner applying
+  # this could cut itself off from the API halfway through.
+  depends_on = [
+    opnsense_firewall_filter.prd_fw_dns,
+    opnsense_firewall_filter.prd_fw_ntp,
+    opnsense_firewall_filter.prd_fw_icmp,
+    opnsense_firewall_filter.k3s_fw_api,
+    opnsense_firewall_filter.k3s_fw_node_exporter,
+  ]
+
   interface = { interface = ["opt3"] }
+  filter = {
+    action      = "block"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "any"
+    source      = { net = "opt3" }
+    destination = { net = "(self)" }
+    log         = true
+  }
+}
+
+resource "opnsense_firewall_filter" "prd_to_prd" {
+  description = "PRD to PRD"
+  sequence    = 51
+  interface   = { interface = ["opt3"] }
   filter = {
     action      = "pass"
     direction   = "in"
@@ -87,8 +205,9 @@ resource "opnsense_firewall_filter" "prd_to_prd" {
 }
 
 resource "opnsense_firewall_filter" "prd_to_any" {
-  sequence  = 61
-  interface = { interface = ["opt3"] }
+  description = "PRD to internet and other nets (LAN, WAN net, firewall blocked above)"
+  sequence    = 61
+  interface   = { interface = ["opt3"] }
   filter = {
     action      = "pass"
     direction   = "in"
@@ -97,34 +216,4 @@ resource "opnsense_firewall_filter" "prd_to_any" {
     source      = { net = "opt3" }
     destination = { net = "any" }
   }
-}
-
-import {
-  to = opnsense_firewall_filter.lan_to_prd
-  id = "439eb4c0-2a30-4c63-9429-a363f0300a5b"
-}
-
-import {
-  to = opnsense_firewall_filter.lan_to_any_v4
-  id = "326bb406-c4ba-4e85-8e74-9c8212dcce7d"
-}
-
-import {
-  to = opnsense_firewall_filter.lan_to_any_v6
-  id = "895ba6e8-0877-4b06-ab11-5882f86091a0"
-}
-
-import {
-  to = opnsense_firewall_filter.prd_block_lan
-  id = "0143fffe-02d2-45cb-b02f-fbf69b096dc4"
-}
-
-import {
-  to = opnsense_firewall_filter.prd_to_prd
-  id = "9acb60ca-8d75-4980-9f05-e65d13efc700"
-}
-
-import {
-  to = opnsense_firewall_filter.prd_to_any
-  id = "6e434209-849f-49c9-b128-153a0c5f3ef3"
 }
