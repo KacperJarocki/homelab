@@ -41,6 +41,19 @@
 #   - DHCP: Kea (and dnsmasq) only, not ISC DHCP static mappings.
 #   - Interface assignments and system settings are not covered at all.
 #
+# Inventory of opnsense-1 (26.1.2), 2026-11-13, read-only API survey:
+#   - Unbound host overrides: 2 -> imported in dns.tf
+#   - Aliases: 11, all system-managed (internal __*_network, bogons,
+#     sshlockout, virusprot, __wazuh_agent_drop) -> never manage these
+#   - Port forwards: 2, both the auto-generated anti-lockout -> never
+#   - Cron: 1, owned by IDS -> never
+#   - MVC filter rules, NAT 1:1/source NAT, Kea, dnsmasq hosts, VLANs, VIPs,
+#     routes, WireGuard, IPsec, OpenVPN: none
+#   - The real filter rules are classic per-interface rules: not reachable
+#     through the provider. Bringing them in means recreating them as MVC
+#     rules (Firewall > Rules [new]) one interface at a time, in code, then
+#     disabling the classic twin by hand.
+#
 # Suggested order: aliases -> Unbound host overrides -> DHCP reservations ->
 # firewall rules (anti-lockout and LAN->GUI/SSH stay manual) -> VLANs.
 #

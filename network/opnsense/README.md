@@ -9,6 +9,7 @@ versions.tf     provider pin + S3 backend (in-cluster RustFS)
 encryption.tf   state/plan encryption (enforced)
 providers.tf    provider, configured only via OPNSENSE_* env vars
 aliases.tf      firewall aliases
+dns.tf          Unbound host overrides (imported)
 imports.tf      import blocks for adopting existing objects
 ```
 
@@ -51,8 +52,8 @@ and the runner sits in the LAN next to the firewall API.
      branches = `main` only.
    - Settings > Actions > General > *Fork pull request workflows from outside
      collaborators*: **Require approval for all external contributors**.
-5. **Lock file.** Run `tofu init` once (see below) and commit the generated
-   `.terraform.lock.hcl` with hashes for both runners:
+5. **Lock file** is committed (`linux_arm64`, `linux_amd64`, `darwin_arm64`).
+   After a provider bump, refresh it with
    `tofu providers lock -platform=linux_arm64 -platform=linux_amd64 -platform=darwin_arm64`.
 
 ## Running locally (and break-glass)
