@@ -153,8 +153,20 @@ else
   if [ "$cur" != "$want" ]; then
     change "cron '$CRON_DESCRIPTION': $cur -> $want"
     if $APPLY; then
+      # The job belongs to the IDS service: OPNsense refuses any save whose
+      # command/parameters differ from the stored ones, and a partial save
+      # counts as different. Send the whole job back with only the schedule
+      # and enabled flag changed.
+      full=$(get "cron/settings/get_job/$job" | jq -c --arg m "$CRON_MINUTES" --arg h "$CRON_HOURS" '
+        .job
+        | with_entries(
+            if (.value | type) == "object"
+            then .value = ([.value | to_entries[] | select(.value.selected == 1) | .key] | join(","))
+            else . end)
+        | .enabled = "1" | .minutes = $m | .hours = $h
+        | del(.origin)')
       # The API answers 200 even when it refuses a change; check the result.
-      res=$(post "cron/settings/set_job/$job" "{\"job\": $want}")
+      res=$(post "cron/settings/set_job/$job" "{\"job\": $full}")
       echo "$res" | jq -e '.result == "saved"' >/dev/null \
         || { echo "cron set_job refused: $res" >&2; exit 1; }
       post cron/service/reconfigure >/dev/null
