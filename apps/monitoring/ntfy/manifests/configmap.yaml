@@ -16,9 +16,11 @@ data:
     auth-file: "/var/lib/ntfy/user.db"
     # Nobody, including anonymous clients, may read or publish unless listed.
     auth-default-access: "deny-all"
+    # homelab-* covers every alert topic (homelab-critical, -workloads,
+    # -nodes, -storage, -network, -monitoring and the catch-all -alerts).
     auth-access:
-      - "alertmanager:homelab-alerts:wo"
-      - "phone:homelab-alerts:ro"
+      - "alertmanager:homelab-*:wo"
+      - "phone:homelab-*:ro"
     enable-signup: false
     enable-login: true
     # iOS gets instant pushes only through APNs: ntfy.sh receives a poll
