@@ -1,0 +1,177 @@
+# Grafana dashboard with the Prometheus alerts (manifests/alert-rules.yaml):
+# what fires now, what is pending, and a timeline of the last days. Picked up
+# by the Grafana dashboard sidecar through the grafana_dashboard label. Built
+# on the ALERTS series, so it covers exactly what Alertmanager sends to ntfy.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-alerts
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  homelab-alerts.json: |
+    {
+      "uid": "homelab-alerts",
+      "title": "Homelab / Alerts",
+      "tags": ["alerts", "homelab"],
+      "timezone": "browser",
+      "editable": true,
+      "refresh": "1m",
+      "schemaVersion": 39,
+      "time": { "from": "now-24h", "to": "now" },
+      "annotations": {
+        "list": [
+          {
+            "name": "Firing alerts",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "enable": true,
+            "iconColor": "red",
+            "expr": "ALERTS{alertstate=\"firing\"}",
+            "step": "60s",
+            "titleFormat": "{{alertname}}",
+            "textFormat": "{{namespace}} {{pod}} {{instance}} {{node}}",
+            "useValueForTime": false
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Critical firing",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "count(ALERTS{alertstate=\"firing\",severity=\"critical\"}) or vector(0)", "instant": true }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+            },
+            "overrides": []
+          },
+          "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Warning firing",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "count(ALERTS{alertstate=\"firing\",severity=\"warning\"}) or vector(0)", "instant": true }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] }
+            },
+            "overrides": []
+          },
+          "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Pending",
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "count(ALERTS{alertstate=\"pending\"}) or vector(0)", "instant": true }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 } ] }
+            },
+            "overrides": []
+          },
+          "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Node reboots (24h)",
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "sum(changes(node_boot_time_seconds{group!=\"firewall\"}[24h])) or vector(0)", "instant": true }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] }
+            },
+            "overrides": []
+          },
+          "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 5,
+          "type": "table",
+          "title": "Active alerts",
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "ALERTS", "instant": true, "format": "table" }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": { "Time": true, "Value": true, "__name__": true, "prometheus": true, "cluster": true, "job": true, "service": true, "port_name": true },
+                "indexByName": { "severity": 0, "alertstate": 1, "alertname": 2, "namespace": 3, "pod": 4, "node": 5, "instance": 6 }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "severity" },
+                "properties": [
+                  { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+                  { "id": "mappings", "value": [ { "type": "value", "options": { "critical": { "color": "red", "index": 0 }, "warning": { "color": "orange", "index": 1 } } } ] }
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "alertstate" },
+                "properties": [
+                  { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+                  { "id": "mappings", "value": [ { "type": "value", "options": { "firing": { "color": "red", "index": 0 }, "pending": { "color": "yellow", "index": 1 } } } ] }
+                ]
+              }
+            ]
+          },
+          "options": { "showHeader": true, "sortBy": [ { "displayName": "severity", "desc": false } ] }
+        },
+        {
+          "id": 6,
+          "type": "state-timeline",
+          "title": "Alert history",
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 14 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "max by (alertname, severity, namespace, pod, node, instance) (ALERTS{alertstate=\"firing\"})", "legendFormat": "{{alertname}} {{namespace}}{{pod}}{{node}}{{instance}}", "interval": "1m" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "fixed", "fixedColor": "red" },
+              "custom": { "fillOpacity": 80, "lineWidth": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "showValue": "never", "mergeValues": true, "rowHeight": 0.8, "legend": { "showLegend": false } }
+        },
+        {
+          "id": 7,
+          "type": "timeseries",
+          "title": "Node uptime",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 26 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "node_time_seconds{group!=\"firewall\"} - node_boot_time_seconds{group!=\"firewall\"}", "legendFormat": "{{instance}}" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+        }
+      ]
+    }

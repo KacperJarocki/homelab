@@ -120,6 +120,12 @@ grafana:
   sidecar:
     dashboards:
       enabled: true
+    datasources:
+      # Show the PrometheusRule alerts under Alerting > Alert rules
+      # (data source-managed) and link them to our Alertmanager for silences.
+      extraJsonData:
+        manageAlerts: true
+        alertmanagerUid: alertmanager
 
 kubelet:
   enabled: true
