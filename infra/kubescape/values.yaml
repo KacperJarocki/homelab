@@ -1,0 +1,59 @@
+# Kubescape (CNCF incubating): vulnerability (CVE) scanning of every image
+# that runs in the cluster and configuration/posture scanning (NSA, MITRE,
+# CIS-style controls) of every workload. Results are stored in-cluster as CRs
+# of its aggregated API (kubectl get vulnerabilitymanifestsummaries,
+# workloadconfigurationscansummaries -A) and exported to Prometheus by the
+# prometheus-exporter; the Kubescape* rules in
+# apps/monitoring/kube-prometheus-stack/manifests/alert-rules.yaml turn them
+# into ntfy alerts (topic security).
+#
+# Scanning only: everything that needs node-agent (an eBPF agent on every
+# node: runtime observability, relevancy, network/seccomp profiles, runtime
+# detection) stays off. Runtime threat detection is Falco's job (infra/falco);
+# two eBPF agents per Raspberry Pi is not worth it. Without node-agent,
+# kubevuln pulls each image from its registry to build the SBOM itself.
+clusterName: k3s-homelab
+
+# The default ("template") renders the storage mTLS CA with genCA and keeps
+# it only via Helm lookup, which does not run under Argo CD: every render
+# would produce a new CA/Secret/caBundle. initContainer generates it once at
+# runtime, stores it in a Secret and patches the APIService caBundle
+# (ignored in the Application's ignoreDifferences).
+certificates:
+  strategy: initContainer
+
+# Daily scans after kured's reboot window (02:00-05:00), not at the same time:
+# kubevuln (CVE scan, pulls every image) is the heavy one.
+kubescapeScheduler:
+  scanSchedule: "15 6 * * *"
+kubevulnScheduler:
+  scanSchedule: "45 6 * * *"
+
+capabilities:
+  configurationScan: enable
+  vulnerabilityScan: enable
+  continuousScan: disable
+  # host-scanner DaemonSet (node CIS checks); k3s does not match the
+  # upstream CIS layout, mostly noise.
+  nodeScan: disable
+  nodeSbomGeneration: disable
+  relevancy: disable
+  runtimeObservability: disable
+  networkPolicyService: disable
+  networkEventsStreaming: disable
+  nodeProfileService: disable
+  seccompProfileService: disable
+  httpDetection: disable
+  admissionController: disable
+  runtimeDetection: disable
+  malwareDetection: disable
+  prometheusExporter: enable
+
+prometheusExporter:
+  # namespace/workload/container labels on the metrics, needed for alerts
+  # that say *which* workload is affected.
+  enableWorkloadMetrics: true
+  # Own ServiceMonitor with honorLabels in manifests/ instead: the chart's
+  # would turn the metric's namespace label into exported_namespace.
+  serviceMonitor:
+    enabled: false

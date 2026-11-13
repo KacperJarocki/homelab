@@ -20,6 +20,7 @@ spec:
     - https://charts.rustfs.com
     - https://kubereboot.github.io/charts
     - https://falcosecurity.github.io/charts
+    - https://kubescape.github.io/helm-charts/
     - ghcr.io/actions/actions-runner-controller-charts
   destinations:
     - server: https://kubernetes.default.svc

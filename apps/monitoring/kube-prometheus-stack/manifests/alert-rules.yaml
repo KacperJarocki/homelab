@@ -569,3 +569,37 @@ spec:
             title: "Falco: {{ $labels.rule }}{{ with $labels.k8s_pod_name }} in {{ . }}{{ end }}"
             summary: "{{ with $labels.k8s_ns_name }}Namespace {{ . }}, {{ end }}node {{ $labels.hostname }}"
             description: "Suspicious behaviour. If it is expected, add an exception in infra/falco/values.yaml (customRules). Details: {namespace=\"falco\", container=\"falco\"} | json | rule=\"{{ $labels.rule }}\""
+        # Kubescape (infra/kubescape) scans daily; its metrics are the current
+        # state (number of findings per workload), not events. Alerting on
+        # "> 0" would fire forever and hold kured, so these only fire when a
+        # workload has more critical findings than a day ago, or is new with
+        # any. They stay firing for that day, then resolve. Right after the
+        # first install every workload with critical findings fires once.
+        - alert: KubescapeNewCriticalVulnerabilities
+          expr: |
+            max by (namespace, workload, workload_kind) (kubescape_vulnerabilities_total_workload_critical)
+              > max by (namespace, workload, workload_kind) (kubescape_vulnerabilities_total_workload_critical offset 1d)
+            or
+            (max by (namespace, workload, workload_kind) (kubescape_vulnerabilities_total_workload_critical) > 0)
+              unless max by (namespace, workload, workload_kind) (kubescape_vulnerabilities_total_workload_critical offset 1d)
+          labels:
+            severity: warning
+            topic: security
+          annotations:
+            title: "Critical CVEs in {{ $labels.workload }}"
+            summary: "{{ $labels.workload_kind }} {{ $labels.namespace }}/{{ $labels.workload }}: {{ printf \"%.0f\" $value }} critical vulnerabilities"
+            description: "Usually fixed by a newer image or chart version (Renovate). List: kubectl -n {{ $labels.namespace }} get vulnerabilitymanifestsummaries"
+        - alert: KubescapeNewCriticalMisconfigurations
+          expr: |
+            max by (namespace, workload, workload_kind) (kubescape_controls_total_workload_critical)
+              > max by (namespace, workload, workload_kind) (kubescape_controls_total_workload_critical offset 1d)
+            or
+            (max by (namespace, workload, workload_kind) (kubescape_controls_total_workload_critical) > 0)
+              unless max by (namespace, workload, workload_kind) (kubescape_controls_total_workload_critical offset 1d)
+          labels:
+            severity: warning
+            topic: security
+          annotations:
+            title: "Critical misconfiguration in {{ $labels.workload }}"
+            summary: "{{ $labels.workload_kind }} {{ $labels.namespace }}/{{ $labels.workload }}: {{ printf \"%.0f\" $value }} failed critical controls"
+            description: "E.g. privileged container, host path, secrets in env. List: kubectl -n {{ $labels.namespace }} get workloadconfigurationscansummaries"

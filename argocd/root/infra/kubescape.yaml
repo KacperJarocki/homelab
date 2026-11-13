@@ -1,0 +1,51 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubescape
+  namespace: argocd
+  annotations:
+    # Needs Longhorn (storage PVC) and the kube-prometheus-stack CRDs
+    # (ServiceMonitor, SkipDryRunOnMissingResource below).
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infra
+  sources:
+    - repoURL: https://kubescape.github.io/helm-charts/
+      chart: kubescape-operator
+      targetRevision: 1.42.0
+      helm:
+        releaseName: kubescape
+        valueFiles:
+          - $values/infra/kubescape/values.yaml
+    - repoURL: https://github.com/kacperjarocki/homelab.git
+      targetRevision: main
+      ref: values
+      path: infra/kubescape/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kubescape
+  # certificates.strategy=initContainer: the storage pod patches the CA into
+  # the APIService at runtime; keep self-heal from removing it.
+  ignoreDifferences:
+    - group: apiregistration.k8s.io
+      kind: APIService
+      name: v1beta1.spdx.softwarecomposition.kubescape.io
+      jqPathExpressions:
+        - .spec.caBundle
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
