@@ -115,7 +115,11 @@ ensure_policy() { # description prio new_action rulesets
   uuid=$(echo "$policies" | jq -r --arg d "$desc" '.[] | select(.description == $d) | .uuid' | head -1)
   if [ -z "$uuid" ]; then
     change "policy add: $desc ($new, prio $prio)"
-    $APPLY && post ids/settings/add_policy "$body" >/dev/null
+    if $APPLY; then
+      res=$(post ids/settings/add_policy "$body")
+      echo "$res" | jq -e '.result == "saved"' >/dev/null \
+        || { echo "add_policy refused: $res" >&2; exit 1; }
+    fi
   else
     live=$(get "ids/settings/get_policy/$uuid" | jq -c '.policy | {
       enabled, prio,
@@ -126,7 +130,11 @@ ensure_policy() { # description prio new_action rulesets
       '{enabled: "1", prio: $p, action: "alert", new_action: $n, rulesets: $r}')
     if [ "$live" != "$wantc" ]; then
       change "policy update: $desc"
-      $APPLY && post "ids/settings/set_policy/$uuid" "$body" >/dev/null
+      if $APPLY; then
+        res=$(post "ids/settings/set_policy/$uuid" "$body")
+        echo "$res" | jq -e '.result == "saved"' >/dev/null \
+          || { echo "set_policy refused: $res" >&2; exit 1; }
+      fi
     fi
   fi
   return 0
@@ -145,7 +153,10 @@ else
   if [ "$cur" != "$want" ]; then
     change "cron '$CRON_DESCRIPTION': $cur -> $want"
     if $APPLY; then
-      post "cron/settings/set_job/$job" "{\"job\": $want}" >/dev/null
+      # The API answers 200 even when it refuses a change; check the result.
+      res=$(post "cron/settings/set_job/$job" "{\"job\": $want}")
+      echo "$res" | jq -e '.result == "saved"' >/dev/null \
+        || { echo "cron set_job refused: $res" >&2; exit 1; }
       post cron/service/reconfigure >/dev/null
     fi
   fi
