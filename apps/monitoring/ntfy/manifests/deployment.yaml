@@ -68,6 +68,11 @@ spec:
         - name: config
           configMap:
             name: ntfy
+            items:
+              - key: server.yml
+                path: server.yml
+              - key: homelab.yml
+                path: templates/homelab.yml
         - name: data
           persistentVolumeClaim:
             claimName: ntfy
