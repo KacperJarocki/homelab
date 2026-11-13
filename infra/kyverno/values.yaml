@@ -1,5 +1,15 @@
+# Kyverno >= 1.20 only executes policies.kyverno.io (CEL) policy types; legacy
+# kyverno.io ClusterPolicy/Policy are no longer enforced. Our policies live in
+# infra/kyverno/policies as ValidatingPolicy/MutatingPolicy. Keep
+# upgrade.acknowledgeLegacyPoliciesNotEnforced at its default (false) so the
+# chart's pre-upgrade check fails loudly if a legacy policy ever sneaks back in.
+
 admissionController:
-  replicas: 1
+  # Two replicas: the webhook keeps serving while one pod restarts (leader-lease
+  # loss when the Pi control plane is slow) or its node is drained by kured.
+  # replicas > 1 makes the chart create a PDB (minAvailable: 1); the default
+  # podAntiAffinity spreads them across nodes.
+  replicas: 2
   metricsService:
     create: true
 backgroundController:
@@ -10,6 +20,13 @@ cleanupController:
   replicas: 1
   metricsService:
     create: true
+  resources:
+    limits:
+      # chart default 128Mi; observed ~85Mi steady state, too little headroom
+      memory: 192Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
 reportsController:
   replicas: 1
   metricsService:

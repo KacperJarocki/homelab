@@ -1,0 +1,82 @@
+# Fills in missing CPU/memory requests and limits on Pod containers.
+# Defaults: requests 100m/128Mi, limits 500m/512Mi. Values that are already set
+# are never overwritten. Defaults are clamped against what the author did set
+# (a defaulted limit is never below an explicit request, a defaulted request is
+# never above an explicit limit) so the API server doesn't reject the Pod.
+# CREATE only: Pod resources are immutable on UPDATE (in-place resizes go
+# through the pods/resize subresource, which this policy does not match).
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: default-resources-if-missing
+  annotations:
+    policies.kyverno.io/title: Default container resources
+    policies.kyverno.io/category: Resources
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/minversion: 1.20.0
+spec:
+  # Pod-only on purpose: no autogen to Deployments etc., so the mutation never
+  # rewrites workload templates (would fight Argo CD self-heal) and validation
+  # only ever sees Pods that have already been defaulted.
+  autogen:
+    podControllers:
+      controllers: []
+  evaluation:
+    admission:
+      enabled: true
+    mutateExisting:
+      enabled: false
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - argocd
+            - cert-manager
+            - kyverno-system
+            - longhorn-system
+            - external-secrets
+            - networking
+            - monitoring
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: some-container-missing-resources
+      expression: >-
+        object.spec.containers.exists(c,
+          !c.?resources.?requests.?cpu.hasValue() || !c.?resources.?requests.?memory.hasValue() ||
+          !c.?resources.?limits.?cpu.hasValue() || !c.?resources.?limits.?memory.hasValue())
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: |-
+          Object{
+            spec: Object.spec{
+              containers: object.spec.containers.map(c, Object.spec.containers{
+                name: c.name,
+                resources: Object.spec.containers.resources{
+                  requests: Object.spec.containers.resources.requests{
+                    cpu: c.?resources.?requests.?cpu.orValue(
+                      c.?resources.?limits.?cpu.hasValue() && quantity(c.resources.limits.cpu).isLessThan(quantity("100m"))
+                        ? c.resources.limits.cpu : "100m"),
+                    memory: c.?resources.?requests.?memory.orValue(
+                      c.?resources.?limits.?memory.hasValue() && quantity(c.resources.limits.memory).isLessThan(quantity("128Mi"))
+                        ? c.resources.limits.memory : "128Mi")
+                  },
+                  limits: Object.spec.containers.resources.limits{
+                    cpu: c.?resources.?limits.?cpu.orValue(
+                      c.?resources.?requests.?cpu.hasValue() && quantity(c.resources.requests.cpu).isGreaterThan(quantity("500m"))
+                        ? c.resources.requests.cpu : "500m"),
+                    memory: c.?resources.?limits.?memory.orValue(
+                      c.?resources.?requests.?memory.hasValue() && quantity(c.resources.requests.memory).isGreaterThan(quantity("512Mi"))
+                        ? c.resources.requests.memory : "512Mi")
+                  }
+                }
+              })
+            }
+          }

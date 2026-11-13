@@ -1,0 +1,57 @@
+# Every container must declare cpu/memory requests and limits.
+# default-resources-if-missing (MutatingPolicy) runs first and fills gaps, so in
+# practice this is the safety net that guarantees the end state.
+# CREATE only: Pod resources are immutable on UPDATE; background scans still
+# report on Pods that already exist.
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-requests-limits
+  annotations:
+    policies.kyverno.io/title: Require container requests and limits
+    policies.kyverno.io/category: Resources
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/minversion: 1.20.0
+spec:
+  # Pod-only on purpose: no autogen to Deployments etc., so the mutation never
+  # rewrites workload templates (would fight Argo CD self-heal) and validation
+  # only ever sees Pods that have already been defaulted.
+  autogen:
+    podControllers:
+      controllers: []
+  validationActions: [Deny]
+  evaluation:
+    admission:
+      enabled: true
+    background:
+      enabled: true
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - argocd
+            - cert-manager
+            - kyverno-system
+            - longhorn-system
+            - external-secrets
+            - networking
+            - monitoring
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+  variables:
+    - name: missing
+      expression: >-
+        object.spec.containers.filter(c,
+          !c.?resources.?requests.?cpu.hasValue() || !c.?resources.?requests.?memory.hasValue() ||
+          !c.?resources.?limits.?cpu.hasValue() || !c.?resources.?limits.?memory.hasValue()
+        ).map(c, c.name)
+  validations:
+    - expression: size(variables.missing) == 0
+      messageExpression: >-
+        'Missing resources.requests/limits for cpu and memory in container(s): ' + variables.missing.join(', ')
