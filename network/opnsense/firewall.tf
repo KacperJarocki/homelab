@@ -217,33 +217,3 @@ resource "opnsense_firewall_filter" "prd_to_any" {
     destination = { net = "any" }
   }
 }
-
-import {
-  to = opnsense_firewall_filter.lan_to_prd
-  id = "439eb4c0-2a30-4c63-9429-a363f0300a5b"
-}
-
-import {
-  to = opnsense_firewall_filter.lan_to_any_v4
-  id = "326bb406-c4ba-4e85-8e74-9c8212dcce7d"
-}
-
-import {
-  to = opnsense_firewall_filter.lan_to_any_v6
-  id = "895ba6e8-0877-4b06-ab11-5882f86091a0"
-}
-
-import {
-  to = opnsense_firewall_filter.prd_block_lan
-  id = "0143fffe-02d2-45cb-b02f-fbf69b096dc4"
-}
-
-import {
-  to = opnsense_firewall_filter.prd_to_prd
-  id = "9acb60ca-8d75-4980-9f05-e65d13efc700"
-}
-
-import {
-  to = opnsense_firewall_filter.prd_to_any
-  id = "6e434209-849f-49c9-b128-153a0c5f3ef3"
-}
