@@ -8,6 +8,12 @@ on:
 permissions:
   contents: write
 
+# Back-to-back merges used to run in parallel, compute the same version and
+# race to push the same tag. Run one at a time so each sees the previous tag.
+concurrency:
+  group: release-tag
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -46,6 +52,12 @@ jobs:
 
           # tag adnotowany (lepszy do historii)
           git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
+          if ! git push origin "$TAG"; then
+            if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+              echo "Tag $TAG was pushed concurrently. Skipping."
+              exit 0
+            fi
+            exit 1
+          fi
 
           echo "Pushed tag $TAG"
