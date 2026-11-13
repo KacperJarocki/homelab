@@ -10,6 +10,7 @@ encryption.tf   state/plan encryption (enforced)
 providers.tf    provider, configured only via OPNSENSE_* env vars
 aliases.tf      firewall aliases
 dns.tf          Unbound host overrides (imported)
+firewall.tf     filter rules, LAN + PRD (imported; "FW GUI" stays manual)
 imports.tf      import blocks for adopting existing objects
 ```
 

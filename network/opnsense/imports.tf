@@ -49,10 +49,9 @@
 #   - Cron: 1, owned by IDS -> never
 #   - MVC filter rules, NAT 1:1/source NAT, Kea, dnsmasq hosts, VLANs, VIPs,
 #     routes, WireGuard, IPsec, OpenVPN: none
-#   - The real filter rules are classic per-interface rules: not reachable
-#     through the provider. Bringing them in means recreating them as MVC
-#     rules (Firewall > Rules [new]) one interface at a time, in code, then
-#     disabling the classic twin by hand.
+#   - Filter rules: were classic rules (no API). Moved to Rules [new] with the
+#     Migration assistant; 6 of the 7 imported in firewall.tf, "FW GUI"
+#     (PRD -> firewall) kept manual on purpose.
 #
 # Suggested order: aliases -> Unbound host overrides -> DHCP reservations ->
 # firewall rules (anti-lockout and LAN->GUI/SSH stay manual) -> VLANs.
