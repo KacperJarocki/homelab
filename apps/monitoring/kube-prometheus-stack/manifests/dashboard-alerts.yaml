@@ -168,7 +168,7 @@ data:
           "gridPos": { "h": 8, "w": 24, "x": 0, "y": 26 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
-            { "refId": "A", "expr": "node_time_seconds{group!=\"firewall\"} - node_boot_time_seconds{group!=\"firewall\"}", "legendFormat": "{{instance}}" }
+            { "refId": "A", "expr": "(node_time_seconds{group!=\"firewall\"} - node_boot_time_seconds{group!=\"firewall\"}) * on (instance) group_left (nodename) node_uname_info{group!=\"firewall\"}", "legendFormat": "{{nodename}}" }
           ],
           "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
           "options": { "legend": { "displayMode": "list", "placement": "bottom" } }

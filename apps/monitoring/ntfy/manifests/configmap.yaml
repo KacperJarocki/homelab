@@ -25,3 +25,48 @@ data:
     # request with the message ID, never the message; the app then fetches it
     # from this server (over the home VPN).
     upstream-base-url: "https://ntfy.sh"
+    # homelab.yml below, mounted as templates/homelab.yml.
+    template-dir: "/etc/ntfy/templates"
+
+  # Alertmanager webhook -> phone notification (?template=homelab).
+  # Every rule in alert-rules.yaml carries three annotations:
+  #   title       what is wrong and where, by name ("Disk almost full on k3s-worker-1")
+  #   summary     the current numbers ("/var: 8 % free"), only shown while firing
+  #   description what it means / where to look
+  # One alert:   "🔴 <title>" + summary, hint, start time.
+  # A group:     "🟠 3 alerts: Pod Not Running" + one line per alert.
+  # Resolved:    "✅ ..." + when it started and how long it lasted.
+  # Times are Europe/Warsaw. Priority: critical 5 (urgent), warning 4, resolved 2.
+  homelab.yml: |
+    title: |
+      {{- $a := first .alerts -}}
+      {{- if eq .status "resolved" }}✅ {{ else if eq $a.labels.severity "critical" }}🔴 {{ else }}🟠 {{ end -}}
+      {{- if eq (len .alerts) 1 -}}
+        {{- if eq .status "resolved" }}Resolved: {{ end -}}
+        {{- $a.annotations.title | default $a.labels.alertname -}}
+      {{- else -}}
+        {{- len .alerts }} {{ if eq .status "resolved" }}resolved{{ else }}alerts{{ end }}: {{ regexReplaceAll "([a-z])([A-Z])" .groupLabels.alertname "${1} ${2}" -}}
+      {{- end -}}
+    message: |
+      {{- $tz := "Europe/Warsaw" -}}
+      {{- $layout := "2006-01-02T15:04:05Z07:00" -}}
+      {{- $resolved := eq .status "resolved" -}}
+      {{- $many := gt (len .alerts) 1 -}}
+      {{- range $i, $a := .alerts -}}
+        {{- $start := toDate $layout $a.startsAt -}}
+        {{- $end := toDate $layout $a.endsAt -}}
+        {{- if $i }}{{ "\n" }}{{ end -}}
+        {{- if $many }}• {{ $a.annotations.title | default $a.labels.alertname }}{{ "\n" }}  {{ end -}}
+        {{- if $resolved -}}
+          {{- $min := div (sub $end.Unix $start.Unix) 60 -}}
+          {{- "" }}Lasted {{ if ge $min 60 }}{{ div $min 60 }}h {{ end }}{{ mod $min 60 }}m (from {{ dateInZone "15:04, Mon 2 Jan" $start $tz }})
+        {{- else -}}
+          {{- with $a.annotations.summary }}{{ . }}{{ "\n" }}{{ if $many }}  {{ end }}{{ end -}}
+          {{- if not $many }}{{ with $a.annotations.description }}{{ . }}{{ "\n" }}{{ end }}{{ end -}}
+          {{- "" }}Since {{ dateInZone "15:04, Mon 2 Jan" $start $tz }}
+        {{- end -}}
+      {{- end -}}
+    priority: |
+      {{- if eq .status "resolved" }}2
+      {{- else if eq (first .alerts).labels.severity "critical" }}5
+      {{- else }}4{{ end -}}

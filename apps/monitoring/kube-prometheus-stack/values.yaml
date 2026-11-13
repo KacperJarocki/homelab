@@ -28,8 +28,10 @@ alertmanager:
     receivers:
       - name: ntfy
         webhook_configs:
-          # ntfy formats Alertmanager payloads itself (template=alertmanager).
-          - url: "http://ntfy.monitoring.svc.cluster.local/homelab-alerts?template=alertmanager"
+          # ntfy formats the payload with its own template (homelab.yml in
+          # apps/monitoring/ntfy/manifests/configmap.yaml); tapping the
+          # notification opens the Homelab / Alerts dashboard.
+          - url: "http://ntfy.monitoring.svc.cluster.local/homelab-alerts?template=homelab&click=https%3A%2F%2Fgrafana.homelab.kacperjarocki.dev%2Fd%2Fhomelab-alerts"
             send_resolved: true
             http_config:
               authorization:
