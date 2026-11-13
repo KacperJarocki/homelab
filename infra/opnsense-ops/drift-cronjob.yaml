@@ -1,0 +1,61 @@
+# Hourly check that the OPNsense interface config (assignments, addresses,
+# bridge members) still matches interfaces-expected.json. OPNsense has no
+# write API for it, so it is checked instead of managed. A failed run makes
+# the alert OPNsenseInterfaceDrift fire until a run succeeds again
+# (apps/monitoring/kube-prometheus-stack/manifests/alert-rules.yaml); the
+# differences are in the failed pod's log:
+#   kubectl -n opnsense logs job/<last opnsense-interface-drift job>
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: opnsense-interface-drift
+  namespace: opnsense
+spec:
+  schedule: "17 * * * *"
+  timeZone: Europe/Warsaw
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      # Drift is deterministic: no retries, the next hourly run re-checks.
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: drift
+              image: python:3.13.13-alpine
+              command: ["python3", "-I", "/check/drift_check.py"]
+              env:
+                - name: EXPECTED
+                  value: /check/interfaces-expected.json
+              envFrom:
+                - secretRef:
+                    name: opnsense-api
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: check
+                  mountPath: /check
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 200m
+                  memory: 64Mi
+          volumes:
+            - name: check
+              configMap:
+                name: opnsense-interface-drift

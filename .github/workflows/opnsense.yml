@@ -1,0 +1,167 @@
+# OPNsense as code (network/opnsense).
+#
+# SECURITY: this repo is public and `homelab-arm64` is a self-hosted runner in
+# the LAN with the firewall API key in its environment. Jobs on that runner
+# must only ever run for trusted refs: push to main and manual dispatch on
+# main. Never give them a pull_request / pull_request_target trigger.
+# Pull requests only get the credential-free `check` job on a GitHub-hosted
+# runner.
+name: OPNsense
+
+on:
+  pull_request:
+    paths:
+      - network/opnsense/**
+      - .github/workflows/opnsense.yml
+  push:
+    branches: [ "main" ]
+    paths:
+      - network/opnsense/**
+      - .github/workflows/opnsense.yml
+  workflow_dispatch:
+    inputs:
+      allow_destroy:
+        description: Allow a plan that deletes or replaces OPNsense objects
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  TOFU_VERSION: 1.13.9
+  WORKDIR: network/opnsense
+
+jobs:
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}
+    env:
+      # Encryption config needs a value to validate; nothing is decrypted here.
+      TF_VAR_state_passphrase: validate-only-not-a-real-passphrase
+    steps:
+      - uses: actions/checkout@v7
+      - uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+          tofu_wrapper: false
+      - run: tofu fmt -check -recursive -diff
+      - run: tofu init -backend=false -input=false
+      - run: tofu validate
+
+  plan:
+    if: >-
+      github.event_name != 'pull_request' &&
+      github.repository == 'KacperJarocki/homelab' &&
+      github.ref == 'refs/heads/main'
+    runs-on: homelab-arm64
+    concurrency:
+      group: opnsense
+      cancel-in-progress: false
+    outputs:
+      changes: ${{ steps.plan.outputs.changes }}
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+          tofu_wrapper: false
+      - run: tofu init -input=false
+      - id: plan
+        run: |
+          set +e
+          tofu plan -input=false -lock-timeout=5m -detailed-exitcode -out=tfplan
+          code=$?
+          set -e
+          case "$code" in
+            0) echo "changes=false" >> "$GITHUB_OUTPUT" ;;
+            2) echo "changes=true" >> "$GITHUB_OUTPUT" ;;
+            *) exit "$code" ;;
+          esac
+          {
+            echo '### tofu plan'
+            echo '```'
+            tofu show -no-color tfplan | tail -n 300
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Deleting or replacing a live firewall object is never a side effect:
+      # a plan with any delete action stops here unless this run was started
+      # by hand with allow_destroy. (Un-managing an object without deleting
+      # it is a `removed` block with destroy = false, which is not a delete.)
+      - name: Refuse deletes unless explicitly allowed
+        if: steps.plan.outputs.changes == 'true'
+        env:
+          ALLOW_DESTROY: ${{ inputs.allow_destroy || false }}
+        run: |
+          deletes=$(tofu show -json tfplan | jq -r '
+            .resource_changes[]? | select(.change.actions | index("delete"))
+            | "\(.change.actions | join("+"))  \(.address)"')
+          [ -z "$deletes" ] && exit 0
+          {
+            echo '### Plan deletes or replaces objects'
+            echo '```'
+            echo "$deletes"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "$deletes"
+          if [ "$ALLOW_DESTROY" != "true" ]; then
+            echo "::error::Plan deletes/replaces OPNsense objects. Re-run via workflow_dispatch with allow_destroy=true if intended."
+            exit 1
+          fi
+      # The plan file is encrypted (encryption.tf, enforced), so it is safe as
+      # an artifact of a public repo. The lock file pins the exact provider
+      # build the plan was made with.
+      - if: steps.plan.outputs.changes == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: tfplan
+          path: |
+            ${{ env.WORKDIR }}/tfplan
+            ${{ env.WORKDIR }}/.terraform.lock.hcl
+          include-hidden-files: true
+          retention-days: 3
+
+  apply:
+    needs: plan
+    if: needs.plan.outputs.changes == 'true'
+    runs-on: homelab-arm64
+    # Required reviewer + main-only deployment branch, set in repo settings.
+    environment: opnsense
+    concurrency:
+      group: opnsense
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+          tofu_wrapper: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: tfplan
+          path: ${{ env.WORKDIR }}
+      - run: tofu init -input=false
+      - name: Back up config.xml to RustFS
+        run: |
+          insecure=""
+          [ "${OPNSENSE_ALLOW_INSECURE:-false}" = "true" ] && insecure="-k"
+          curl -sSf $insecure -u "$OPNSENSE_API_KEY:$OPNSENSE_API_SECRET" \
+            "$OPNSENSE_URI/api/core/backup/download/this" -o "$RUNNER_TEMP/config.xml"
+          grep -q '<opnsense>' "$RUNNER_TEMP/config.xml"
+          key="backups/opnsense-$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_SHA::7}.xml"
+          curl -sSf --aws-sigv4 "aws:amz:us-east-1:s3" \
+            --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+            -H "x-amz-content-sha256: UNSIGNED-PAYLOAD" \
+            -T "$RUNNER_TEMP/config.xml" "$AWS_ENDPOINT_URL_S3/tofu-state/$key"
+          rm -f "$RUNNER_TEMP/config.xml"
+          echo "backup: s3://tofu-state/$key" >> "$GITHUB_STEP_SUMMARY"
+      - run: tofu apply -input=false -lock-timeout=5m tfplan

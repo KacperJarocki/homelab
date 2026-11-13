@@ -1,0 +1,78 @@
+# Daily off-box copy of the OPNsense config.xml to RustFS:
+#   s3://tofu-state/backups/daily/opnsense-<UTC timestamp>.xml
+# (applies additionally write backups/opnsense-<ts>-<sha>.xml right before
+# changing anything, .github/workflows/opnsense.yml).
+#
+# Secret opnsense-api (scripts/create-network-iac-secrets.sh):
+#   OPNSENSE_URI, OPNSENSE_API_KEY/_SECRET (the `tofu` user, which has
+#   "Diagnostics: Configuration History"), AWS_ACCESS_KEY_ID/_SECRET_ACCESS_KEY.
+# config.xml holds password hashes and keys: it only ever goes to RustFS.
+# No pruning yet: ~60 KB a day.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: opnsense-config-backup
+  namespace: opnsense
+spec:
+  schedule: "30 3 * * *"
+  timeZone: Europe/Warsaw
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 100
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: curlimages/curl:8.23.0
+              command: ["/bin/sh", "-ec"]
+              args:
+                - |
+                  out=/tmp/config.xml
+                  insecure=""
+                  [ "${OPNSENSE_ALLOW_INSECURE:-false}" = "true" ] && insecure="-k"
+                  curl -sSf $insecure -u "$OPNSENSE_API_KEY:$OPNSENSE_API_SECRET" \
+                    "$OPNSENSE_URI/api/core/backup/download/this" -o "$out"
+                  grep -q '<opnsense>' "$out"
+                  key="backups/daily/opnsense-$(date -u +%Y%m%dT%H%M%SZ).xml"
+                  curl -sSf --aws-sigv4 "aws:amz:us-east-1:s3" \
+                    --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+                    -H "x-amz-content-sha256: UNSIGNED-PAYLOAD" \
+                    -T "$out" "$S3_ENDPOINT/tofu-state/$key"
+                  echo "saved s3://tofu-state/$key ($(wc -c < "$out") bytes)"
+              env:
+                - name: S3_ENDPOINT
+                  value: http://rustfs-svc.rustfs.svc.cluster.local:9000
+              envFrom:
+                - secretRef:
+                    name: opnsense-api
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+                limits:
+                  cpu: 200m
+                  memory: 64Mi
+          volumes:
+            - name: tmp
+              emptyDir:
+                medium: Memory
+                sizeLimit: 8Mi

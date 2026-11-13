@@ -1,0 +1,18 @@
+# actions-runner-controller: manages the self-hosted GitHub Actions runners
+# declared in infra/arc-runners. Only one scale set exists, so one replica.
+#
+# flags.watchSingleNamespace is deliberately not set: with it the chart puts a
+# Role into arc-runners, a namespace that only appears in wave 3, so this
+# wave-2 app would fail on a fresh cluster.
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+flags:
+  logLevel: info

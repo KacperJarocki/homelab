@@ -1,0 +1,62 @@
+{
+  "_comment": "Expected OPNsense interface config (System > Interfaces, no API to manage it, so it is checked instead). Change this file together with the firewall. Read by drift_check.py; lo0 and unassigned ports are ignored, any other new assignment is drift.",
+  "interfaces": {
+    "lan": {
+      "description": "LAN",
+      "device": "igc0",
+      "enabled": true,
+      "ipaddr": "10.10.0.1",
+      "subnet": "16",
+      "ipaddrv6": "track6",
+      "blockpriv": null,
+      "blockbogons": null
+    },
+    "wan": {
+      "description": "WAN",
+      "device": "igc3",
+      "enabled": true,
+      "ipaddr": "dhcp",
+      "subnet": "",
+      "ipaddrv6": "dhcp6",
+      "blockpriv": "1",
+      "blockbogons": "1"
+    },
+    "opt1": {
+      "description": "prd",
+      "device": "igc1",
+      "enabled": false,
+      "ipaddr": null,
+      "subnet": null,
+      "ipaddrv6": null,
+      "blockpriv": null,
+      "blockbogons": null
+    },
+    "opt2": {
+      "description": "prd2",
+      "device": "igc2",
+      "enabled": false,
+      "ipaddr": null,
+      "subnet": null,
+      "ipaddrv6": null,
+      "blockpriv": null,
+      "blockbogons": null
+    },
+    "opt3": {
+      "description": "PRD",
+      "device": "bridge0",
+      "enabled": true,
+      "ipaddr": "10.20.0.1",
+      "subnet": "16",
+      "ipaddrv6": null,
+      "blockpriv": null,
+      "blockbogons": null
+    }
+  },
+  "bridges": {
+    "bridge0": {
+      "members": "opt1,opt2",
+      "proto": "rstp",
+      "descr": "PRD"
+    }
+  }
+}

@@ -1,0 +1,57 @@
+# Self-hosted GitHub Actions runners for this repo only (repo-level scale set:
+# no other repository can target it). Used by .github/workflows/opnsense.yml
+# to reach the OPNsense API, which is LAN-only.
+#
+# The repo is public. The workflows that use `runs-on: homelab-arm64` must
+# never run on pull_request events, see the header of opnsense.yml.
+githubConfigUrl: https://github.com/KacperJarocki/homelab
+
+# GitHub App credentials (github_app_id, github_app_installation_id,
+# github_app_private_key), created by scripts/create-network-iac-secrets.sh.
+githubConfigSecret: arc-github-app
+
+runnerScaleSetName: homelab-arm64
+
+# Scale from zero; one job at a time is all a single firewall needs, and the
+# workflow serialises applies anyway.
+minRunners: 0
+maxRunners: 1
+
+# helm lookup does not run under Argo CD, so the chart cannot discover the
+# controller's ServiceAccount itself (release `arc` in infra/arc-controller).
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-gha-rs-controller
+
+template:
+  spec:
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1001 # `runner` in the actions-runner image
+      fsGroup: 123
+      seccompProfile:
+        type: RuntimeDefault
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:2.338.2
+        command: ["/home/runner/run.sh"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        env:
+          # S3 API of the in-cluster RustFS (state backend + config backups).
+          - name: AWS_ENDPOINT_URL_S3
+            value: http://rustfs-svc.rustfs.svc.cluster.local:9000
+        # OPNSENSE_URI/_API_KEY/_API_SECRET, OPNSENSE_ALLOW_INSECURE,
+        # AWS_ACCESS_KEY_ID/_SECRET_ACCESS_KEY, TF_VAR_state_passphrase.
+        envFrom:
+          - secretRef:
+              name: opnsense-tofu
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "2"
+            memory: 2Gi

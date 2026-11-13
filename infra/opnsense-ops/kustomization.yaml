@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: opnsense
+resources:
+  - backup-cronjob.yaml
+  - drift-cronjob.yaml
+configMapGenerator:
+  # Hash suffix on purpose: a changed expectation rolls into the next run.
+  - name: opnsense-interface-drift
+    files:
+      - drift_check.py
+      - interfaces-expected.json

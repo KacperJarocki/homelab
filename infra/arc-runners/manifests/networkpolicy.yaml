@@ -1,0 +1,58 @@
+# Runner pods may only talk to what the OPNsense workflow needs:
+#   - cluster DNS
+#   - RustFS S3 API (state, config backups)
+#   - the OPNsense API on 10.20.0.1:443
+#   - HTTPS to the internet (GitHub, OpenTofu registry, provider downloads)
+# Nothing else in the LAN (nodes, other services, the rest of the cluster).
+# Enforced by Cilium.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: runner-egress
+  namespace: arc-runners
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: rustfs
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: rustfs
+      ports:
+        - protocol: TCP
+          port: 9000
+    - to:
+        - ipBlock:
+            cidr: 10.20.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 100.64.0.0/10
+      ports:
+        - protocol: TCP
+          port: 443
