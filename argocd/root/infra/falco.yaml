@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: falco
+  namespace: argocd
+  annotations:
+    # Same wave as the monitoring stack: the Falcosidekick ServiceMonitor needs
+    # the kube-prometheus-stack CRDs (SkipDryRunOnMissingResource below).
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infra
+  sources:
+    - repoURL: https://falcosecurity.github.io/charts
+      chart: falco
+      targetRevision: 9.2.2
+      helm:
+        releaseName: falco
+        valueFiles:
+          - $values/infra/falco/values.yaml
+    - repoURL: https://github.com/kacperjarocki/homelab.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: falco
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    # Falco runs privileged (eBPF probe, host /proc, the containerd socket).
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: privileged
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

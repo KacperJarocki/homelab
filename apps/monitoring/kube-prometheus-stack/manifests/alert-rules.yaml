@@ -24,6 +24,7 @@
 #   storage     persistent volumes
 #   network     certificates, the OPNsense firewall
 #   monitoring  the alerting pipeline itself (scrape targets, Alertmanager)
+#   security    Falco runtime detections in containers (infra/falco)
 # severity=critical goes to homelab-critical instead, whatever the topic.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
@@ -522,3 +523,49 @@ spec:
             title: "Alert rules fail to evaluate"
             summary: "{{ printf \"%.0f\" $value }} failures in 15 min ({{ $labels.rule_group }})"
             description: "Usually a many-to-many join; those alerts cannot fire. See Prometheus > Rules."
+    # Falco runtime detections (infra/falco), counted by Falcosidekick per
+    # rule, priority and pod. One alert per rule + pod; it resolves 10 min
+    # after the last event. `x unless x offset 10m` catches the first event of
+    # a series: Falcosidekick creates the counter at 1, so increase() alone
+    # would miss it. The full event (process, command line, user, file) is in
+    # Loki: {namespace="falco", container="falco"} | json
+    # Excluded from kured's alert hold (infra/kured): a detection must not
+    # delay patching.
+    - name: security
+      rules:
+        - alert: FalcoCriticalEvent
+          expr: |
+            label_replace(
+              sum by (rule, k8s_ns_name, k8s_pod_name, hostname) (
+                increase(falcosecurity_falcosidekick_falco_events_total{priority_raw=~"critical|alert|emergency"}[10m]) > 0
+                or
+                (falcosecurity_falcosidekick_falco_events_total{priority_raw=~"critical|alert|emergency"}
+                  unless falcosecurity_falcosidekick_falco_events_total offset 10m)
+              ),
+              "namespace", "$1", "k8s_ns_name", "(.+)"
+            )
+          labels:
+            severity: critical
+            topic: security
+          annotations:
+            title: "Falco: {{ $labels.rule }}{{ with $labels.k8s_pod_name }} in {{ . }}{{ end }}"
+            summary: "{{ with $labels.k8s_ns_name }}Namespace {{ . }}, {{ end }}node {{ $labels.hostname }}"
+            description: "Runtime threat detected. Details (process, command, user) in Grafana Explore: {namespace=\"falco\", container=\"falco\"} | json | rule=\"{{ $labels.rule }}\""
+        - alert: FalcoWarningEvent
+          expr: |
+            label_replace(
+              sum by (rule, k8s_ns_name, k8s_pod_name, hostname) (
+                increase(falcosecurity_falcosidekick_falco_events_total{priority_raw=~"warning|error"}[10m]) > 0
+                or
+                (falcosecurity_falcosidekick_falco_events_total{priority_raw=~"warning|error"}
+                  unless falcosecurity_falcosidekick_falco_events_total offset 10m)
+              ),
+              "namespace", "$1", "k8s_ns_name", "(.+)"
+            )
+          labels:
+            severity: warning
+            topic: security
+          annotations:
+            title: "Falco: {{ $labels.rule }}{{ with $labels.k8s_pod_name }} in {{ . }}{{ end }}"
+            summary: "{{ with $labels.k8s_ns_name }}Namespace {{ . }}, {{ end }}node {{ $labels.hostname }}"
+            description: "Suspicious behaviour. If it is expected, add an exception in infra/falco/values.yaml (customRules). Details: {namespace=\"falco\", container=\"falco\"} | json | rule=\"{{ $labels.rule }}\""
