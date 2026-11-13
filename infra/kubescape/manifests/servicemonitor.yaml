@@ -1,0 +1,23 @@
+# Scrapes the Kubescape prometheus-exporter. Replaces the chart's
+# ServiceMonitor for one reason: honorLabels. The workload metrics carry the
+# scanned workload's `namespace`; without honorLabels Prometheus would rename
+# it to exported_namespace and set namespace="kubescape" on every series.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-exporter
+  namespace: kubescape
+spec:
+  endpoints:
+    - interval: 60s
+      path: /metrics
+      targetPort: 8080
+      honorLabels: true
+  namespaceSelector:
+    matchNames:
+      - kubescape
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kubescape-operator
+      app.kubernetes.io/instance: kubescape
+      app.kubernetes.io/component: prometheus-exporter
