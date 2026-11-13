@@ -120,6 +120,47 @@ discovery.relabel "pod_logs" {
   }
 }
 
+// OPNsense (opnsense-1) syslog: firewall filter log, Suricata (IDS/IPS)
+// alerts and system messages. The firewall sends RFC5424 over UDP to the
+// alloy-syslog LoadBalancer (10.20.30.51:514, config/syslog-service.yaml),
+// which lands on any Alloy pod. Query: {job="opnsense/syslog"}; Suricata EVE
+// lines are JSON: {job="opnsense/syslog", app="suricata"} | json
+loki.relabel "opnsense_syslog" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__syslog_message_app_name"]
+    target_label  = "app"
+  }
+
+  rule {
+    source_labels = ["__syslog_message_severity"]
+    target_label  = "level"
+  }
+
+  rule {
+    source_labels = ["__syslog_message_facility"]
+    target_label  = "facility"
+  }
+}
+
+loki.source.syslog "opnsense" {
+  listener {
+    address                = "0.0.0.0:1514"
+    protocol               = "udp"
+    use_incoming_timestamp = true
+    labels                 = {
+      job      = "opnsense/syslog",
+      host     = "opnsense-1",
+      group    = "firewall",
+      cluster  = "k3s-homelab",
+    }
+  }
+
+  relabel_rules = loki.relabel.opnsense_syslog.rules
+  forward_to    = [loki.write.default.receiver]
+}
+
 loki.source.kubernetes "pod_logs" {
   targets    = discovery.relabel.pod_logs.output
   forward_to = [loki.process.pod_logs.receiver]
@@ -473,19 +514,3 @@ prometheus.scrape "opnsense_node" {
   }
 }
 
-prometheus.scrape "opnsense_exporter" {
-  targets = [{
-    __address__  = "opnsense-exporter.opnsense.svc.cluster.local:8080",
-    job          = "opnsense_exporter",
-    group        = "firewall",
-    host         = "opnsense-1",
-    cluster      = "k3s-homelab",
-    instance     = "opnsense-1",
-  }]
-  forward_to      = [prometheus.remote_write.default.receiver]
-  scrape_interval = "15s"
-
-  clustering {
-    enabled = true
-  }
-}

@@ -4,6 +4,8 @@
 #   arc-runners/arc-github-app   GitHub App credentials for ARC
 #   arc-runners/opnsense-tofu    OPNsense API key, RustFS S3 credentials and
 #                                the OpenTofu state passphrase (runner env)
+#   opnsense/opnsense-backup     API key + RustFS credentials for the daily
+#                                config.xml backup CronJob
 #
 # Input (environment):
 #   GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID, GITHUB_APP_PRIVATE_KEY_FILE
@@ -17,6 +19,7 @@
 set -eu
 
 NS=arc-runners
+BACKUP_NS=opnsense
 RUSTFS_NS=rustfs
 
 need() { eval "v=\${$1:-}"; [ -n "$v" ] || { echo "missing env: $1" >&2; exit 1; }; }
@@ -51,6 +54,18 @@ kubectl -n "$NS" create secret generic opnsense-tofu \
   --from-literal=AWS_ACCESS_KEY_ID="$(get "$RUSTFS_NS" rustfs-credentials RUSTFS_ACCESS_KEY)" \
   --from-literal=AWS_SECRET_ACCESS_KEY="$(get "$RUSTFS_NS" rustfs-credentials RUSTFS_SECRET_KEY)" \
   --from-literal=TF_VAR_state_passphrase="$passphrase" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Daily config.xml backup CronJob (infra/opnsense-backup): same API user,
+# same RustFS credentials, no state passphrase.
+kubectl get namespace "$BACKUP_NS" >/dev/null 2>&1 || kubectl create namespace "$BACKUP_NS"
+kubectl -n "$BACKUP_NS" create secret generic opnsense-backup \
+  --from-literal=OPNSENSE_URI="${OPNSENSE_URI:-https://10.20.0.1}" \
+  --from-literal=OPNSENSE_ALLOW_INSECURE="${OPNSENSE_ALLOW_INSECURE:-true}" \
+  --from-literal=OPNSENSE_API_KEY="$OPNSENSE_API_KEY" \
+  --from-literal=OPNSENSE_API_SECRET="$OPNSENSE_API_SECRET" \
+  --from-literal=AWS_ACCESS_KEY_ID="$(get "$RUSTFS_NS" rustfs-credentials RUSTFS_ACCESS_KEY)" \
+  --from-literal=AWS_SECRET_ACCESS_KEY="$(get "$RUSTFS_NS" rustfs-credentials RUSTFS_SECRET_KEY)" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 if [ "$new_passphrase" = true ]; then

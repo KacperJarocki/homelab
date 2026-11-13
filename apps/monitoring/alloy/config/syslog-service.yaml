@@ -1,0 +1,23 @@
+# Syslog from OPNsense into Alloy (loki.source.syslog "opnsense" in
+# config.alloy listens on UDP 1514 in every Alloy pod). Fixed IP from the
+# MetalLB pool so the firewall's remote syslog destination never changes;
+# .50 is Traefik.
+apiVersion: v1
+kind: Service
+metadata:
+  name: alloy-syslog
+  namespace: monitoring
+  annotations:
+    metallb.io/loadBalancerIPs: 10.20.30.51
+spec:
+  type: LoadBalancer
+  # Keep the firewall's address as the source (no SNAT), only node-local pods.
+  externalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/name: alloy
+    app.kubernetes.io/instance: alloy
+  ports:
+    - name: syslog-udp
+      protocol: UDP
+      port: 514
+      targetPort: 1514

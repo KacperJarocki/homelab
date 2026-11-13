@@ -1,0 +1,35 @@
+# Wave 4: needs RustFS (wave 3) for the tofu-state bucket.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opnsense-backup
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infra
+  source:
+    repoURL: https://github.com/kacperjarocki/homelab.git
+    targetRevision: main
+    path: infra/opnsense-backup
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: opnsense
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: restricted
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

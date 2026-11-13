@@ -29,11 +29,23 @@ and the runner sits in the LAN next to the firewall API.
 
 ## One-time setup
 
-1. **OPNsense API user.** System > Access > Users: user `tofu`, no GUI login,
-   privileges limited to what is managed here (Firewall: Alias, Firewall:
-   Rules, Services: Unbound, Services: Kea DHCP, ... add as needed) plus
-   *Diagnostics: Configuration History* for the backup step. Create an API key
-   for it.
+1. **OPNsense API user.** System > Access > Groups > `+`: group `iac`, no
+   members except `tofu`, with exactly these privileges (names as the GUI
+   shows them, checked against the 26.1 ACL files):
+
+   | Privilege | Covers |
+   |---|---|
+   | Firewall: Alias: Edit | `api/firewall/alias/*` (CRUD + reconfigure) |
+   | Firewall: Aliases | alias search/get/export |
+   | Firewall: Categories | `api/firewall/category/*` |
+   | Firewall: Rules [new] | `api/firewall/filter/*` (rules, savepoint, apply) |
+   | Services: Unbound | `api/unbound/*` (overrides, settings, service reconfigure) |
+   | Diagnostics: Configuration History | `api/core/backup/*` (pre-apply and daily backups) |
+
+   Then System > Access > Users > `tofu`: member of `iac` **only** (not
+   `readonly`: `user-config-readonly` makes every write fail, and not
+   `admins`), no GUI login needed, one API key. Add privileges here only when
+   a new resource type moves into this directory (e.g. *Services: Kea DHCP*).
 2. **GitHub App for ARC.** Settings > Developer settings > GitHub Apps, owned
    by your account, no webhook, repository permission *Administration:
    Read & write* (and *Metadata: Read*). Install it on `homelab` only. Note the
@@ -75,6 +87,56 @@ cd network/opnsense && tofu init && tofu plan
 If the cluster is gone completely, OPNsense keeps its own configuration history
 (System > Configuration > History) and every apply leaves a copy of the
 previous `config.xml` under `s3://tofu-state/backups/`.
+
+## Settings the provider cannot manage (GUI, keep this list current)
+
+### Remote syslog -> Loki
+
+System > Settings > Logging > Remote > `+`:
+enabled, transport **UDP(4)**, applications: *filter*, *suricata* and
+*system* (empty = everything), levels: info and above, hostname
+**10.20.30.51**, port **514**, **RFC5424** checked, description `loki`.
+Also Firewall > Settings > Advanced (or Logging): log packets matched by the
+default block rules.
+
+In Grafana (Loki): `{job="opnsense/syslog"}`, IDS alerts
+`{job="opnsense/syslog", app="suricata"} | json`. The receiver is
+`loki.source.syslog "opnsense"` in `apps/monitoring/alloy/config/config.alloy`
+behind the `alloy-syslog` LoadBalancer.
+
+### IDS/IPS (Suricata), blocking
+
+1. Interfaces > Settings: disable **Hardware CRC**, **Hardware TSO** and
+   **Hardware LRO** (netmap/IPS breaks with offloading), reboot.
+2. Services > Intrusion Detection > Administration > Settings (state on
+   2026-11-13: enabled, mode *PCAP live mode (IDS)* = detect only, WAN,
+   Hyperscan, syslog off): set mode **Netmap (IPS)**, keep interface
+   **WAN** (netmap on the `bridge0`/PRD side is not reliable; *Divert (IPS)*
+   would need `divert-to` on the filter rules, which the provider cannot
+   set), promiscuous off, pattern matcher *Hyperscan*, home networks stay
+   RFC1918, turn on **Enable syslog alerts** and **Enable eve syslog
+   output**.
+3. Download: disable everything not listed here (all 64 rulesets are on
+   today), then enable and download:
+   - reputation lists, near-zero false positives, **drop**:
+     ET open/compromised, ET open/drop, ET open/dshield, ET open/ciarmy,
+     ET open/botcc, ET open/botcc.portgrouped, abuse.ch/Feodo Tracker,
+     abuse.ch/SSL Fingerprint Blacklist, abuse.ch/SSL IP Blacklist,
+     abuse.ch/ThreatFox, abuse.ch/URLhaus
+   - behaviour rules, **alert** first: ET open/emerging-malware,
+     ET open/emerging-exploit, ET open/emerging-exploit_kit,
+     ET open/emerging-scan, ET open/emerging-attack_response,
+     ET open/emerging-web_server
+4. Policy tab: policy `drop-reputation` (priority 1): rulesets = the first
+   group, action *alert* -> new action **drop**. Policy `alert-behaviour`
+   (priority 2): the second group, new action *alert*. After a week of clean
+   alerts in Grafana, move rulesets from the second policy to drop.
+5. System > Settings > Cron: enable the existing job *ids rule updates*
+   (origin IDS, currently disabled, so signatures are stale): daily, e.g.
+   04:00.
+
+Unused plugins: `os-isc-dhcp` (no DHCP server configured, no leases) and
+`os-wazuh-agent` (disabled) can be removed in System > Firmware > Plugins.
 
 ## Rules of thumb
 
