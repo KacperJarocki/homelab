@@ -31,7 +31,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: drift
-              image: python:3.13.13-alpine
+              image: python:3.13.18-alpine
               command: ["python3", "-I", "/check/drift_check.py"]
               env:
                 - name: EXPECTED
