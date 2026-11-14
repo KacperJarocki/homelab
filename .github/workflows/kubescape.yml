@@ -5,8 +5,9 @@
 #            Kubescape's controls. Results: GitHub Code Scanning (Security tab)
 #            and the job summary. Informational, never fails the run.
 #   images   pull requests only: images that the PR adds or changes compared
-#            to the base branch (e.g. a Renovate chart bump), scanned for CVEs.
-#            Fails on critical vulnerabilities.
+#            to the base branch (e.g. a Renovate chart bump), scanned for CVEs
+#            by scripts/image-cve-gate.sh. Fails on critical CVEs the image it
+#            replaces did not have (or any critical in a brand-new image).
 # Runs on GitHub-hosted runners only: the repo is public, nothing here may run
 # on homelab-arm64.
 name: Kubescape
@@ -105,21 +106,23 @@ jobs:
           list "$RUNNER_TEMP/head" > head.txt
           list "$RUNNER_TEMP/base" > base.txt
           comm -13 base.txt head.txt > new-images.txt
+          comm -23 base.txt head.txt > removed-images.txt
           echo "count=$(wc -l < new-images.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
           { echo '## Images added or changed by this PR'; echo '```'; cat new-images.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Scan new images for vulnerabilities
         if: steps.diff.outputs.count != '0'
-        # One run for all images: the CVE database is loaded once. Exits
-        # non-zero if any image has a critical CVE or cannot be pulled.
+        # Fails only on critical CVEs a new image brings that the image it
+        # replaces (same repository, older tag) did not already have, or on an
+        # image that cannot be scanned. A bump that keeps an upstream-unfixed
+        # CVE passes; a new image without predecessor must be free of
+        # criticals. Same check locally: see scripts/image-cve-gate.sh.
         run: |
           status=0
-          xargs kubescape scan image --severity-threshold critical < new-images.txt > scan.txt 2>&1 || status=$?
+          sh_out=$(SCAN_JSON=image-scan.json head/scripts/image-cve-gate.sh new-images.txt removed-images.txt) || status=$?
           {
-            echo '## Image vulnerability scan (critical fails the job)'
-            echo '```'
-            tail -n 150 scan.txt
-            echo '```'
+            echo '## Image vulnerability scan (new critical CVEs fail the job)'
+            echo "$sh_out"
           } >> "$GITHUB_STEP_SUMMARY"
-          cat scan.txt
+          echo "$sh_out"
           exit "$status"

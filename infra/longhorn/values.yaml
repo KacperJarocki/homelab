@@ -1,5 +1,9 @@
 defaultSettings:
   defaultReplicaCount: 2
+  # Live-upgrade volume engines to the new default engine image after a
+  # Longhorn upgrade (one engine per node at a time). With 0 the volumes stay
+  # on the old engine/instance-manager images and their CVEs forever.
+  concurrentAutomaticEngineUpgradePerNodeLimit: 1
 persistence:
   defaultClassReplicaCount: 2
 ingress:

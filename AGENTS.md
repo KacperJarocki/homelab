@@ -16,7 +16,8 @@
 
 ## Validation Commands
 - `scripts/validate-local.sh` renders every Application like Argo CD would (`helm template` with the referenced values, `kubectl kustomize`, YAML parse). Needs `helm`, `kubectl`, `yq` and network access for charts. Git sources that point at other repositories are skipped.
-- `RENDER_DIR=<dir> scripts/validate-local.sh` also keeps the rendered manifests (one file per Application source). `.github/workflows/kubescape.yml` uses it: posture scan of everything rendered (GitHub Code Scanning, informational) and, on PRs, a CVE scan of images the PR adds or changes vs the base branch (fails on critical).
+- `RENDER_DIR=<dir> scripts/validate-local.sh` also keeps the rendered manifests (one file per Application source). `.github/workflows/kubescape.yml` uses it: posture scan of everything rendered (GitHub Code Scanning, informational) and, on PRs, a CVE scan of images the PR adds or changes vs the base branch (`scripts/image-cve-gate.sh`: fails on critical CVEs the replaced image did not have).
+- CVE check of an image change before committing (same gate as the Kubescape PR job, needs `kubescape` and `jq`): `printf '%s\n' <new-image:tag> > new.txt; printf '%s\n' <old-image:tag> > old.txt; scripts/image-cve-gate.sh new.txt old.txt`. It fails only on critical CVEs the old image did not already have; an upstream-unfixed CVE carried over passes.
 - Single chart: `helm template <release> <chart> --repo <url> --version <ver> -n <ns> -f <values.yaml> > /dev/null`.
 - Plain manifests against a reachable cluster without changing it: `kubectl apply --dry-run=server -f infra/<component>/manifests`.
 - With Argo CD installed: `argocd app diff <name>` shows live vs Git for one app; `kubectl -n argocd get applications` shows sync/health state for all.
