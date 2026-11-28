@@ -15,7 +15,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: create-buckets
-          image: amazon/aws-cli:2.40.3
+          image: amazon/aws-cli:2.42.5
           command: ["/bin/sh", "-ec"]
           args:
             - |
