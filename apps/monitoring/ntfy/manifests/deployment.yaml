@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ntfy
-          image: docker.io/binwiederhier/ntfy:v2.38.0
+          image: docker.io/binwiederhier/ntfy:v2.38.3
           args: ["serve", "--config", "/etc/ntfy/server.yml"]
           envFrom:
             - secretRef:
